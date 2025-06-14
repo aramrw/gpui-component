@@ -212,7 +212,7 @@ impl RenderOnce for SidebarMenuItem {
                                 h_flex()
                                     .flex_1()
                                     .gap_x_2()
-                                    .justify_center()
+                                    //.justify_between()
                                     .overflow_x_hidden()
                                     .child(
                                         h_flex()
