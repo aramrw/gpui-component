@@ -571,6 +571,14 @@ impl Side {
     pub fn is_top(&self) -> bool {
         matches!(self, Self::Top)
     }
+
+    pub fn is_vertical(&self) -> bool {
+        matches!(self, Side::Left | Side::Right)
+    }
+
+    pub fn is_horizontal(&self) -> bool {
+        matches!(self, Side::Top | Side::Bottom)
+    }
 }
 
 /// A trait for defining element that can be collapsed.

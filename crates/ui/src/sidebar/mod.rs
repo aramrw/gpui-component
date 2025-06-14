@@ -210,25 +210,40 @@ impl<E: Collapsible + IntoElement> RenderOnce for Sidebar<E> {
             Side::Right => v_flex(),
         };
         base.id("sidebar")
-            .w(self.width)
-            .when(self.collapsed, |this| this.w(COLLAPSED_WIDTH))
             .flex_shrink_0()
-            .h_full()
             .overflow_hidden()
             .relative()
             .bg(cx.theme().sidebar)
             .text_color(cx.theme().sidebar_foreground)
             .border_color(cx.theme().sidebar_border)
+            // Apply vertical-specific styles
+            .when(self.side.is_vertical(), |this| {
+                this.h_full()
+                    .w(self.width)
+                    .when(self.collapsed, |this| this.w(COLLAPSED_WIDTH))
+            })
+            // Apply horizontal-specific styles
+            .when(self.side.is_horizontal(), |this| {
+                this.w_full()
+                    .h(self.width)
+                    // Note: You may want a different COLLAPSED_HEIGHT constant here
+                    .when(self.collapsed, |this| this.h(COLLAPSED_WIDTH))
+            })
+            // Apply the correct border based on the side
             .map(|this| match self.side {
                 Side::Left => this.border_r(self.border_width),
                 Side::Right => this.border_l(self.border_width),
-                Side::Bottom => this.border_b(self.border_width),
-                Side::Top => this.border_t(self.border_width),
+                // A top bar has a border on its bottom edge
+                Side::Top => this.border_b(self.border_width),
+                // A bottom bar has a border on its top edge
+                Side::Bottom => this.border_t(self.border_width),
             })
             .when_some(self.header.take(), |this, header| {
                 this.child(h_flex().id("header").p_2().gap_2().child(header))
             })
             .child(
+                // This content area might also need to switch between v_flex and h_flex
+                // depending on the side, but for now we'll leave it as is.
                 v_flex().id("content").flex_1().min_h_0().child(
                     div()
                         .children(
