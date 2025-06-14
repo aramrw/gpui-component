@@ -6,6 +6,13 @@ use gpui::{
 };
 use std::rc::Rc;
 
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
+pub enum MenuDirection {
+    #[default]
+    Vertical,
+    Horizontal,
+}
+
 #[derive(IntoElement)]
 pub struct SidebarMenu {
     base: Div,
@@ -26,6 +33,14 @@ impl SidebarMenu {
             items: Vec::new(),
             collapsed: false,
         }
+    }
+
+    pub fn set_direction(mut self, direction: MenuDirection) -> Self {
+        match direction {
+            MenuDirection::Vertical => self.base = v_flex(),
+            MenuDirection::Horizontal => self.base = h_flex(),
+        }
+        self
     }
 
     pub fn child(mut self, child: impl Into<SidebarMenuItem>) -> Self {
