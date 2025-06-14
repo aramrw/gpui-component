@@ -1,17 +1,10 @@
 use crate::{h_flex, v_flex, ActiveTheme as _, Collapsible, Icon, IconName, StyledExt};
 use gpui::{
     div, percentage, prelude::FluentBuilder as _, AnyElement, App, ClickEvent, Div, ElementId,
-    InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled, Window,
+    FlexDirection, InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce,
+    SharedString, StatefulInteractiveElement as _, Styled, Window,
 };
 use std::rc::Rc;
-
-#[derive(Clone, Copy, Default, Debug, PartialEq, Eq)]
-pub enum MenuDirection {
-    #[default]
-    Vertical,
-    Horizontal,
-}
 
 #[derive(IntoElement)]
 pub struct SidebarMenu {
@@ -35,10 +28,12 @@ impl SidebarMenu {
         }
     }
 
-    pub fn set_direction(mut self, direction: MenuDirection) -> Self {
+    pub fn set_direction(mut self, direction: FlexDirection) -> Self {
         match direction {
-            MenuDirection::Vertical => self.base = v_flex(),
-            MenuDirection::Horizontal => self.base = h_flex(),
+            FlexDirection::Column => self.base = v_flex(),
+            FlexDirection::Row => self.base = h_flex(),
+            FlexDirection::ColumnReverse => self.base = v_flex(),
+            FlexDirection::RowReverse => self.base = h_flex(),
         }
         self
     }
