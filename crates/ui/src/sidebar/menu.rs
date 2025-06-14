@@ -149,6 +149,12 @@ impl SidebarMenuItem {
     }
 }
 
+impl Styled for SidebarMenuItem {
+    fn style(&mut self) -> &mut gpui::StyleRefinement {
+        self.base.style()
+    }
+}
+
 impl RenderOnce for SidebarMenuItem {
     fn render(self, _: &mut Window, cx: &mut App) -> impl IntoElement {
         let handler = self.handler.clone();
