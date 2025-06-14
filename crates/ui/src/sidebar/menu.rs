@@ -175,18 +175,22 @@ impl RenderOnce for SidebarMenuItem {
 
         div()
             .id(self.id.clone())
+            .w_full()
             .child(
-                // self.base is the h_flex that we style from the outside.
-                // We will add all children directly to it.
                 self.base
+                    .size_full()
                     .id("item")
+                    .overflow_x_hidden()
+                    .flex_shrink_0()
                     .p_2()
                     .gap_x_2()
+                    //.rounded(cx.theme().radius)
                     .text_sm()
                     .hover(|this| {
                         if is_active {
                             return this;
                         }
+
                         this.bg(cx.theme().accent)
                             .text_color(cx.theme().sidebar_accent_foreground)
                     })
@@ -195,12 +199,29 @@ impl RenderOnce for SidebarMenuItem {
                             .bg(cx.theme().sidebar_accent)
                             .text_color(cx.theme().sidebar_accent_foreground)
                     })
-                    // Add the icon if it exists.
                     .when_some(self.icon.clone(), |this, icon| this.child(icon))
-                    // When not collapsed, add the label, suffix, and submenu icon.
+                    .when(is_collapsed, |this| {
+                        this.justify_center().when(is_active, |this| {
+                            this.bg(cx.theme().sidebar_accent)
+                                .text_color(cx.theme().sidebar_accent_foreground)
+                        })
+                    })
                     .when(!is_collapsed, |this| {
-                        this.child(div().child(self.label.clone()))
-                            .when_some(self.suffix, |this, suffix| this.child(suffix))
+                        this.h_7()
+                            .child(
+                                h_flex()
+                                    .flex_1()
+                                    .gap_x_2()
+                                    .justify_center()
+                                    .overflow_x_hidden()
+                                    .child(
+                                        h_flex()
+                                            .flex_1()
+                                            .overflow_x_hidden()
+                                            .child(self.label.clone()),
+                                    )
+                                    .when_some(self.suffix, |this, suffix| this.child(suffix)),
+                            )
                             .when(is_submenu, |this| {
                                 this.child(
                                     Icon::new(IconName::ChevronRight)
@@ -211,7 +232,6 @@ impl RenderOnce for SidebarMenuItem {
                     })
                     .on_click(move |ev, window, cx| handler(ev, window, cx)),
             )
-            // The logic for showing the nested submenu is unchanged and correct.
             .when(is_submenu && is_open && !is_collapsed, |this| {
                 this.child(
                     v_flex()
