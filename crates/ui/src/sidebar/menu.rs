@@ -1,20 +1,28 @@
 use crate::{h_flex, v_flex, ActiveTheme as _, Collapsible, Icon, IconName, StyledExt};
 use gpui::{
-    div, percentage, prelude::FluentBuilder as _, AnyElement, App, ClickEvent, ElementId,
+    div, percentage, prelude::FluentBuilder as _, AnyElement, App, ClickEvent, Div, ElementId,
     InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce, SharedString,
-    StatefulInteractiveElement as _, Styled as _, Window,
+    StatefulInteractiveElement as _, Styled, Window,
 };
 use std::rc::Rc;
 
 #[derive(IntoElement)]
 pub struct SidebarMenu {
+    base: Div,
     collapsed: bool,
     items: Vec<SidebarMenuItem>,
+}
+
+impl Styled for SidebarMenu {
+    fn style(&mut self) -> &mut gpui::StyleRefinement {
+        self.base.style()
+    }
 }
 
 impl SidebarMenu {
     pub fn new() -> Self {
         Self {
+            base: v_flex(),
             items: Vec::new(),
             collapsed: false,
         }
@@ -45,7 +53,7 @@ impl Collapsible for SidebarMenu {
 }
 impl RenderOnce for SidebarMenu {
     fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
-        v_flex().gap_2().children(
+        self.base.children(
             self.items
                 .into_iter()
                 .enumerate()
