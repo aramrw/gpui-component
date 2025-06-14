@@ -562,6 +562,15 @@ impl Side {
     pub fn is_right(&self) -> bool {
         matches!(self, Self::Right)
     }
+
+    #[inline]
+    pub fn is_bottom(&self) -> bool {
+        matches!(self, Self::Bottom)
+    }
+
+    pub fn is_top(&self) -> bool {
+        matches!(self, Self::Top)
+    }
 }
 
 /// A trait for defining element that can be collapsed.

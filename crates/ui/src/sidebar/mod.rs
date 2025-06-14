@@ -144,6 +144,14 @@ impl SidebarToggleButton {
         Self::new(Side::Right)
     }
 
+    pub fn bottom() -> Self {
+        Self::new(Side::Bottom)
+    }
+
+    pub fn top() -> Self {
+        Self::new(Side::Top)
+    }
+
     pub fn side(mut self, side: Side) -> Self {
         self.side = side;
         self
@@ -195,8 +203,13 @@ impl RenderOnce for SidebarToggleButton {
 impl<E: Collapsible + IntoElement> RenderOnce for Sidebar<E> {
     fn render(mut self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let view_id = window.current_view();
-        v_flex()
-            .id("sidebar")
+        let base = match self.side {
+            Side::Top => h_flex(),
+            Side::Bottom => h_flex(),
+            Side::Left => v_flex(),
+            Side::Right => v_flex(),
+        };
+        base.id("sidebar")
             .w(self.width)
             .when(self.collapsed, |this| this.w(COLLAPSED_WIDTH))
             .flex_shrink_0()
