@@ -60,6 +60,14 @@ impl<E: Collapsible + IntoElement> Sidebar<E> {
         Self::new(Side::Right)
     }
 
+    pub fn bottom() -> Self {
+        Self::new(Side::Bottom)
+    }
+
+    pub fn top() -> Self {
+        Self::new(Side::Top)
+    }
+
     /// Set the width of the sidebar
     pub fn width(mut self, width: impl Into<DefiniteLength>) -> Self {
         self.width = width.into();
@@ -201,6 +209,8 @@ impl<E: Collapsible + IntoElement> RenderOnce for Sidebar<E> {
             .map(|this| match self.side {
                 Side::Left => this.border_r(self.border_width),
                 Side::Right => this.border_l(self.border_width),
+                Side::Bottom => this.border_b(self.border_width),
+                Side::Top => this.border_t(self.border_width),
             })
             .when_some(self.header.take(), |this, header| {
                 this.child(h_flex().id("header").p_2().gap_2().child(header))

@@ -546,6 +546,8 @@ impl Placement {
 pub enum Side {
     Left,
     Right,
+    Bottom,
+    Top,
 }
 
 impl Side {
