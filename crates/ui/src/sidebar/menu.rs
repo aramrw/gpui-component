@@ -174,7 +174,7 @@ impl RenderOnce for SidebarMenuItem {
                     .flex_shrink_0()
                     .p_2()
                     .gap_x_2()
-                    .rounded(cx.theme().radius)
+                    //.rounded(cx.theme().radius)
                     .text_sm()
                     .hover(|this| {
                         if is_active {
