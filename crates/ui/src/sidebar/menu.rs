@@ -65,6 +65,7 @@ impl RenderOnce for SidebarMenu {
 /// A sidebar menu item
 #[derive(IntoElement)]
 pub struct SidebarMenuItem {
+    base: Div,
     id: ElementId,
     icon: Option<Icon>,
     label: SharedString,
@@ -79,6 +80,7 @@ impl SidebarMenuItem {
     /// Create a new SidebarMenuItem with a label
     pub fn new(label: impl Into<SharedString>) -> Self {
         Self {
+            base: h_flex(),
             id: ElementId::Integer(0),
             icon: None,
             label: label.into(),
@@ -159,7 +161,7 @@ impl RenderOnce for SidebarMenuItem {
             .id(self.id.clone())
             .w_full()
             .child(
-                h_flex()
+                self.base
                     .size_full()
                     .id("item")
                     .overflow_x_hidden()
