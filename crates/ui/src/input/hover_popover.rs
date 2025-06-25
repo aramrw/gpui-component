@@ -9,7 +9,7 @@ use crate::{
     highlighter::LanguageRegistry,
     input::{InputState, Marker},
     text::TextView,
-    ActiveTheme as _,
+    ActiveTheme as _, StyledExt as _,
 };
 
 pub struct DiagnosticPopover {
@@ -35,13 +35,14 @@ impl DiagnosticPopover {
         let Some(range) = self.marker.range.as_ref() else {
             return None;
         };
+        let line_number_width = self.state.read(cx).line_number_width;
 
         let (_, _, start_pos) = self
             .state
             .read(cx)
             .line_and_position_for_offset(range.start);
 
-        start_pos
+        start_pos.map(|pos| pos + Point::new(line_number_width, px(0.)))
     }
 
     pub(super) fn show(&mut self, cx: &mut Context<Self>) {
@@ -111,7 +112,7 @@ impl Render for DiagnosticPopover {
                 .border_1()
                 .border_color(border)
                 .rounded(cx.theme().radius)
-                .shadow_sm()
+                .shadow_xs()
                 .child(TextView::markdown("message", message))
                 .child(
                     canvas(

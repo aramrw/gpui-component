@@ -10,6 +10,7 @@ use smallvec::SmallVec;
 
 use crate::{
     highlighter::{LanguageRegistry, SyntaxHighlighter},
+    input::blink_cursor::CURSOR_WIDTH,
     ActiveTheme as _, Root,
 };
 
@@ -174,14 +175,13 @@ impl TextElement {
 
             if input.show_cursor(window, cx) {
                 // cursor blink
-                let cursor_height =
-                    window.text_style().font_size.to_pixels(window.rem_size()) + px(2.);
+                let cursor_height = line_height;
                 cursor_bounds = Some(Bounds::new(
                     point(
-                        bounds.left() + cursor_pos.x + line_number_width,
+                        bounds.left() + cursor_pos.x + line_number_width + scroll_offset.x,
                         bounds.top() + cursor_pos.y + ((line_height - cursor_height) / 2.),
                     ),
-                    size(px(1.), cursor_height),
+                    size(CURSOR_WIDTH, cursor_height),
                 ));
             };
         }
@@ -333,14 +333,15 @@ impl TextElement {
         &self,
         state: &InputState,
         line_height: Pixels,
-        bounds: &Bounds<Pixels>,
+        input_height: Pixels,
     ) -> Range<usize> {
         if state.is_single_line() {
             return 0..1;
         }
 
         let scroll_top = -state.scroll_handle.offset().y;
-        let mut visible_range = 0..state.text_wrapper.lines.len();
+        let total_lines = state.text_wrapper.lines.len();
+        let mut visible_range = 0..total_lines;
         let mut line_top = px(0.);
         for (ix, line) in state.text_wrapper.lines.iter().enumerate() {
             line_top += line.height(line_height);
@@ -348,8 +349,9 @@ impl TextElement {
             if line_top < scroll_top {
                 visible_range.start = ix;
             }
-            if line_top > scroll_top + bounds.size.height {
-                visible_range.end = ix;
+
+            if line_top > scroll_top + input_height {
+                visible_range.end = (ix + 1).min(total_lines);
                 break;
             }
         }
@@ -432,8 +434,6 @@ impl TextElement {
 }
 
 pub(super) struct PrepaintState {
-    /// The visible range (no wrap) of lines in the viewport.
-    visible_range: Range<usize>,
     /// The lines of entire lines.
     last_layout: LastLayout,
     /// The lines only contains the visible lines in the viewport, based on `visible_range`.
@@ -538,7 +538,7 @@ impl Element for TextElement {
         let state = self.input.read(cx);
         let line_height = window.line_height();
 
-        let visible_range = self.calculate_visible_range(&state, line_height, &bounds);
+        let visible_range = self.calculate_visible_range(&state, line_height, bounds.size.height);
         let highlight_styles = self.highlight_lines(&visible_range, cx);
 
         let multi_line = self.input.read(cx).is_multi_line();
@@ -797,6 +797,8 @@ impl Element for TextElement {
             bounds,
             last_layout: LastLayout {
                 lines: Rc::new(lines),
+                line_height,
+                visible_range,
             },
             scroll_size,
             line_numbers,
@@ -805,7 +807,6 @@ impl Element for TextElement {
             cursor_scroll_offset,
             current_line_index,
             selection_path,
-            visible_range,
         }
     }
 
@@ -823,7 +824,7 @@ impl Element for TextElement {
         let focused = focus_handle.is_focused(window);
         let bounds = prepaint.bounds;
         let selected_range = self.input.read(cx).selected_range.clone();
-        let visible_range = &prepaint.visible_range;
+        let visible_range = &prepaint.last_layout.visible_range;
 
         window.handle_input(
             &focus_handle,
@@ -864,13 +865,13 @@ impl Element for TextElement {
             invisible_top_padding += line.size(line_height).height;
         }
 
-        let mut offset_y = px(0.);
+        let mut mask_offset_y = px(0.);
         if self.input.read(cx).masked {
             // Move down offset for vertical centering the *****
             if cfg!(target_os = "macos") {
-                offset_y = px(3.);
+                mask_offset_y = px(3.);
             } else {
-                offset_y = px(2.5);
+                mask_offset_y = px(2.5);
             }
         }
 
@@ -879,6 +880,7 @@ impl Element for TextElement {
             .style
             .active_line;
 
+        let mut offset_y = px(0.);
         if let Some(line_numbers) = prepaint.line_numbers.as_ref() {
             offset_y += invisible_top_padding;
 
@@ -909,7 +911,8 @@ impl Element for TextElement {
         }
 
         // Paint text
-        let mut offset_y = invisible_top_padding;
+        let mut offset_y = mask_offset_y + invisible_top_padding;
+
         for line in prepaint
             .last_layout
             .iter()
@@ -932,7 +935,6 @@ impl Element for TextElement {
             input.last_layout = Some(prepaint.last_layout.clone());
             input.last_bounds = Some(bounds);
             input.last_cursor_offset = Some(input.cursor_offset());
-            input.last_line_height = line_height;
             input.set_input_bounds(input_bounds, cx);
             input.last_selected_range = Some(selected_range);
             input.scroll_size = prepaint.scroll_size;

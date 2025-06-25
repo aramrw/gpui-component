@@ -8,8 +8,8 @@ use std::{
 use gpui::{
     div, prelude::FluentBuilder, px, Animation, AnimationExt, AnyElement, App, AppContext,
     ClickEvent, Context, DismissEvent, ElementId, Entity, EventEmitter, InteractiveElement as _,
-    IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement, Styled,
-    Subscription, Window,
+    IntoElement, ParentElement as _, Render, SharedString, StatefulInteractiveElement,
+    StyleRefinement, Styled, Subscription, Window,
 };
 use smol::Timer;
 
@@ -64,6 +64,7 @@ pub struct Notification {
     ///
     /// None means the notification will be added to the end of the list.
     id: NotificationId,
+    style: StyleRefinement,
     type_: Option<NotificationType>,
     title: Option<SharedString>,
     message: Option<SharedString>,
@@ -117,6 +118,7 @@ impl Notification {
 
         Self {
             id: id.into(),
+            style: StyleRefinement::default(),
             title: None,
             message: None,
             type_: None,
@@ -252,6 +254,11 @@ impl Notification {
 }
 impl EventEmitter<DismissEvent> for Notification {}
 impl FluentBuilder for Notification {}
+impl Styled for Notification {
+    fn style(&mut self) -> &mut StyleRefinement {
+        &mut self.style
+    }
+}
 impl Render for Notification {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let closing = self.closing;
@@ -266,17 +273,18 @@ impl Render for Notification {
             .group("")
             .occlude()
             .relative()
-            .w_96()
+            .w_112()
             .border_1()
             .border_color(cx.theme().border)
             .bg(cx.theme().popover)
-            .rounded(cx.theme().radius)
+            .rounded(cx.theme().radius_lg)
             .shadow_md()
-            .py_2()
+            .py_3p5()
             .px_4()
             .gap_3()
+            .refine_style(&self.style)
             .when_some(icon, |this, icon| {
-                this.child(div().absolute().top_3().left_4().child(icon))
+                this.child(div().absolute().py_3p5().left_4().child(icon))
             })
             .child(
                 v_flex()
@@ -294,7 +302,7 @@ impl Render for Notification {
                     }),
             )
             .when_some(self.action_builder.clone(), |this, action_builder| {
-                this.child(action_builder(window, cx).small().outline().mr_1())
+                this.child(action_builder(window, cx).small().outline().mr_3p5())
             })
             .when_some(self.on_click.clone(), |this, on_click| {
                 this.on_click(cx.listener(move |view, event, window, cx| {
@@ -302,36 +310,39 @@ impl Render for Notification {
                     on_click(event, window, cx);
                 }))
             })
-            .when(!self.autohide, |this| {
-                this.child(
-                    h_flex()
-                        .absolute()
-                        .top_1()
-                        .right_1()
-                        .invisible()
-                        .group_hover("", |this| this.visible())
-                        .child(
-                            Button::new("close")
-                                .icon(IconName::Close)
-                                .ghost()
-                                .xsmall()
-                                .on_click(
-                                    cx.listener(|this, _, window, cx| this.dismiss(window, cx)),
-                                ),
-                        ),
-                )
-            })
+            .child(
+                h_flex()
+                    .absolute()
+                    .top_3p5()
+                    .right_3p5()
+                    .invisible()
+                    .group_hover("", |this| this.visible())
+                    .child(
+                        Button::new("close")
+                            .icon(IconName::Close)
+                            .ghost()
+                            .xsmall()
+                            .on_click(cx.listener(|this, _, window, cx| this.dismiss(window, cx))),
+                    ),
+            )
             .with_animation(
                 ElementId::NamedInteger("slide-down".into(), closing as u64),
-                Animation::new(Duration::from_secs_f64(0.15))
+                Animation::new(Duration::from_secs_f64(0.25))
                     .with_easing(cubic_bezier(0.4, 0., 0.2, 1.)),
                 move |this, delta| {
                     if closing {
                         let x_offset = px(0.) + delta * px(45.);
-                        this.left(px(0.) + x_offset).opacity(1. - delta)
+                        let opacity = 1. - delta;
+                        this.left(px(0.) + x_offset)
+                            .shadow_none()
+                            .opacity(opacity)
+                            .when(opacity < 0.85, |this| this.shadow_none())
                     } else {
                         let y_offset = px(-45.) + delta * px(45.);
-                        this.top(px(0.) + y_offset).opacity(delta)
+                        let opacity = delta;
+                        this.top(px(0.) + y_offset)
+                            .opacity(opacity)
+                            .when(opacity < 0.85, |this| this.shadow_none())
                     }
                 },
             )
@@ -391,6 +402,19 @@ impl NotificationList {
                 }
             })
             .detach();
+        }
+        cx.notify();
+    }
+
+    pub(crate) fn close(
+        &mut self,
+        id: impl Into<NotificationId>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let id: NotificationId = id.into();
+        if let Some(n) = self.notifications.iter().find(|n| n.read(cx).id == id) {
+            n.update(cx, |note, cx| note.dismiss(window, cx))
         }
         cx.notify();
     }

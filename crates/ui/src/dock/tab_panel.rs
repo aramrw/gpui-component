@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use gpui::{
     div, prelude::FluentBuilder, px, relative, rems, App, AppContext, Context, Corner,
-    DismissEvent, DragMoveEvent, Empty, Entity, EventEmitter, FocusHandle, Focusable,
+    DismissEvent, Div, DragMoveEvent, Empty, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement, Pixels, Render, ScrollHandle,
     SharedString, StatefulInteractiveElement, StyleRefinement, Styled, WeakEntity, Window,
 };
@@ -761,25 +761,27 @@ impl TabPanel {
                         ))
                     }),
             )
-            .suffix(
-                h_flex()
-                    .items_center()
-                    .top_0()
-                    .right_0()
-                    .border_l_1()
-                    .border_b_1()
-                    .h_full()
-                    .border_color(cx.theme().border)
-                    .bg(cx.theme().tab_bar)
-                    .px_2()
-                    .gap_1()
-                    .children(
-                        self.active_panel(cx)
-                            .and_then(|panel| panel.title_suffix(window, cx)),
-                    )
-                    .child(self.render_toolbar(state, window, cx))
-                    .when_some(right_dock_button, |this, btn| this.child(btn)),
-            )
+            .when(!self.collapsed, |this| {
+                this.suffix(
+                    h_flex()
+                        .items_center()
+                        .top_0()
+                        .right_0()
+                        .border_l_1()
+                        .border_b_1()
+                        .h_full()
+                        .border_color(cx.theme().border)
+                        .bg(cx.theme().tab_bar)
+                        .px_2()
+                        .gap_1()
+                        .children(
+                            self.active_panel(cx)
+                                .and_then(|panel| panel.title_suffix(window, cx)),
+                        )
+                        .child(self.render_toolbar(state, window, cx))
+                        .when_some(right_dock_button, |this, btn| this.child(btn)),
+                )
+            })
             .into_any_element()
     }
 
@@ -1106,6 +1108,14 @@ impl TabPanel {
             });
         }
     }
+
+    // Bind actions to the tab panel, only when the tab panel is not collapsed.
+    fn bind_actions(&self, cx: &mut Context<Self>) -> Div {
+        v_flex().when(!self.collapsed, |this| {
+            this.on_action(cx.listener(Self::on_action_toggle_zoom))
+                .on_action(cx.listener(Self::on_action_close_panel))
+        })
+    }
 }
 
 impl Focusable for TabPanel {
@@ -1137,11 +1147,9 @@ impl Render for TabPanel {
             state.closable = false;
         }
 
-        v_flex()
+        self.bind_actions(cx)
             .id("tab-panel")
             .track_focus(&focus_handle)
-            .on_action(cx.listener(Self::on_action_toggle_zoom))
-            .on_action(cx.listener(Self::on_action_close_panel))
             .size_full()
             .overflow_hidden()
             .bg(cx.theme().background)

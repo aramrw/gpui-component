@@ -1,6 +1,5 @@
 use std::ops::Range;
 use std::time::Duration;
-use std::{cell::Cell, rc::Rc};
 
 use crate::actions::{Cancel, Confirm, SelectNext, SelectPrev};
 use crate::input::InputState;
@@ -161,7 +160,7 @@ pub struct List<D: ListDelegate> {
     querying: bool,
     scrollbar_visible: bool,
     vertical_scroll_handle: UniformListScrollHandle,
-    scrollbar_state: Rc<Cell<ScrollbarState>>,
+    scroll_state: ScrollbarState,
     pub(crate) size: Size,
     selected_index: Option<usize>,
     right_clicked_index: Option<usize>,
@@ -193,7 +192,7 @@ where
             selected_index: None,
             right_clicked_index: None,
             vertical_scroll_handle: UniformListScrollHandle::new(),
-            scrollbar_state: Rc::new(Cell::new(ScrollbarState::new())),
+            scroll_state: ScrollbarState::default(),
             max_height: None,
             scrollbar_visible: true,
             selectable: true,
@@ -288,15 +287,14 @@ where
         self.selected_index
     }
 
-    fn render_scrollbar(&self, _: &mut Window, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+    fn render_scrollbar(&self, _: &mut Window, _: &mut Context<Self>) -> Option<impl IntoElement> {
         if !self.scrollbar_visible {
             return None;
         }
 
         Some(Scrollbar::uniform_scroll(
-            cx.entity().entity_id(),
-            self.scrollbar_state.clone(),
-            self.vertical_scroll_handle.clone(),
+            &self.scroll_state,
+            &self.vertical_scroll_handle,
         ))
     }
 
@@ -596,8 +594,8 @@ where
                 this.child(
                     div()
                         .map(|this| match self.size {
-                            Size::Small => this.py_0().px_1p5(),
-                            _ => this.py_1().px_2(),
+                            Size::Small => this.px_1p5(),
+                            _ => this.px_2(),
                         })
                         .border_b_1()
                         .border_color(cx.theme().border)
@@ -609,6 +607,7 @@ where
                                         .text_color(cx.theme().muted_foreground),
                                 )
                                 .cleanable()
+                                .p_0()
                                 .appearance(false),
                         ),
                 )
