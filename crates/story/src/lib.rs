@@ -1,6 +1,7 @@
 mod accordion_story;
 mod alert_story;
 mod assets;
+mod avatar_story;
 mod badge_story;
 mod button_story;
 mod calendar_story;
@@ -52,6 +53,7 @@ use gpui::{
 
 pub use accordion_story::AccordionStory;
 pub use alert_story::AlertStory;
+pub use avatar_story::AvatarStory;
 pub use badge_story::BadgeStory;
 pub use button_story::ButtonStory;
 pub use calendar_story::CalendarStory;
@@ -124,6 +126,8 @@ pub struct SelectRadius(usize);
 actions!(story, [Quit, Open, CloseWindow, ToggleSearch]);
 
 const PANEL_NAME: &str = "StoryContainer";
+
+actions!(story, [TestAction, Tab, TabPrev]);
 
 pub struct AppState {
     pub invisible_panels: Entity<Vec<SharedString>>,
