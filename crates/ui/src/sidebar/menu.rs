@@ -1,8 +1,8 @@
 use crate::{h_flex, v_flex, ActiveTheme as _, Collapsible, Icon, IconName, StyledExt};
 use gpui::{
-    div, percentage, prelude::FluentBuilder as _, AnyElement, App, ClickEvent, Div, ElementId,
-    FlexDirection, InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce,
-    SharedString, StatefulInteractiveElement as _, Styled, Window,
+    div, percentage, prelude::FluentBuilder as _, radians, AnyElement, App, ClickEvent, Div,
+    ElementId, FlexDirection, InteractiveElement as _, IntoElement, ParentElement as _, Radians,
+    RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Window,
 };
 use std::rc::Rc;
 
@@ -176,21 +176,20 @@ impl RenderOnce for SidebarMenuItem {
         div()
             .id(self.id.clone())
             .w_full()
+            .justify_center()
+            .items_center()
             .child(
                 self.base
                     .size_full()
                     .id("item")
                     .overflow_x_hidden()
                     .flex_shrink_0()
-                    .p_2()
                     .gap_x_2()
-                    //.rounded(cx.theme().radius)
                     .text_sm()
                     .hover(|this| {
                         if is_active {
                             return this;
                         }
-
                         this.bg(cx.theme().sidebar_accent.opacity(0.8))
                             .text_color(cx.theme().sidebar_accent_foreground)
                     })
@@ -207,26 +206,29 @@ impl RenderOnce for SidebarMenuItem {
                         })
                     })
                     .when(!is_collapsed, |this| {
-                        this.h_7()
-                            .child(
-                                h_flex()
-                                    .flex_1()
-                                    .gap_x_2()
-                                    //.justify_between()
-                                    .overflow_x_hidden()
-                                    .child(
-                                        h_flex()
-                                            .flex_1()
-                                            .overflow_x_hidden()
-                                            .child(self.label.clone()),
-                                    )
-                                    .when_some(self.suffix, |this, suffix| this.child(suffix)),
-                            )
+                        this.h_9()
+                            // *** THE FIX IS HERE ***
+                            // Only render the label's container if the label string is not empty.
+                            .when(!self.label.is_empty(), |this| {
+                                this.child(
+                                    h_flex()
+                                        .flex_1()
+                                        .gap_x_2()
+                                        .overflow_x_hidden()
+                                        .child(
+                                            h_flex()
+                                                .flex_1()
+                                                .overflow_x_hidden()
+                                                .child(self.label.clone()),
+                                        )
+                                        .when_some(self.suffix, |this, suffix| this.child(suffix)),
+                                )
+                            })
                             .when(is_submenu, |this| {
                                 this.child(
                                     Icon::new(IconName::ChevronRight)
                                         .size_4()
-                                        .when(is_open, |this| this.rotate(percentage(90. / 360.))),
+                                        .when(is_open, |this| this.rotate(radians(90.0))),
                                 )
                             })
                     })
