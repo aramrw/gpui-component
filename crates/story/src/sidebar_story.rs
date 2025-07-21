@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
 use gpui::{
-    div, impl_internal_actions, prelude::FluentBuilder, relative, App, AppContext, ClickEvent,
-    Context, Entity, Focusable, IntoElement, ParentElement, Render, SharedString, Styled, Window,
+    div, prelude::FluentBuilder, relative, Action, App, AppContext, ClickEvent, Context, Entity,
+    Focusable, IntoElement, ParentElement, Render, SharedString, Styled, Window,
 };
 
 use gpui_component::{
     badge::Badge,
-    blue_500,
     breadcrumb::{Breadcrumb, BreadcrumbItem},
     divider::Divider,
     h_flex,
@@ -17,14 +16,13 @@ use gpui_component::{
         SidebarToggleButton,
     },
     switch::Switch,
-    v_flex, white, ActiveTheme, Icon, IconName, Side, Sizable,
+    v_flex, ActiveTheme, Icon, IconName, Side, Sizable,
 };
 use serde::Deserialize;
 
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
+#[action(namespace = sidebar_story, no_json)]
 pub struct SelectCompany(SharedString);
-
-impl_internal_actions!(sidebar_story, [SelectCompany]);
 
 pub struct SidebarStory {
     active_items: HashMap<Item, bool>,
@@ -262,8 +260,8 @@ impl Render for SidebarStory {
                                     .items_center()
                                     .justify_center()
                                     .rounded(cx.theme().radius)
-                                    .bg(blue_500())
-                                    .text_color(white())
+                                    .bg(cx.theme().success)
+                                    .text_color(cx.theme().success_foreground)
                                     .size_8()
                                     .flex_shrink_0()
                                     .when(!self.collapsed, |this| {

@@ -5,8 +5,8 @@ use crate::{
     ActiveTheme,
 };
 use gpui::{
-    div, px, App, Axis, DefiniteLength, Div, Edges, Element, ElementId, EntityId, FocusHandle,
-    Pixels, Refineable, StyleRefinement, Styled, Window,
+    div, point, px, App, Axis, BoxShadow, DefiniteLength, Div, Edges, Element, ElementId,
+    FocusHandle, Hsla, Pixels, Refineable, StyleRefinement, Styled, Window,
 };
 use serde::{Deserialize, Serialize};
 
@@ -20,6 +20,29 @@ pub fn h_flex() -> Div {
 #[inline]
 pub fn v_flex() -> Div {
     div().v_flex()
+}
+
+/// Create a [`BoxShadow`] like CSS.
+///
+/// e.g:
+///
+/// If CSS is `box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);`
+///
+/// Then the equivalent in Rust is `box_shadow(0., 0., 10., 0., hsla(0., 0., 0., 0.1))`
+#[inline]
+pub fn box_shadow(
+    x: impl Into<Pixels>,
+    y: impl Into<Pixels>,
+    blur: impl Into<Pixels>,
+    spread: impl Into<Pixels>,
+    color: Hsla,
+) -> BoxShadow {
+    BoxShadow {
+        offset: point(x.into(), y.into()),
+        blur_radius: blur.into(),
+        spread_radius: spread.into(),
+        color,
+    }
 }
 
 macro_rules! font_weight {
@@ -144,11 +167,11 @@ pub trait StyledExt: Styled + Sized {
     ///
     /// Current this is only have a vertical scrollbar.
     #[inline]
-    fn scrollable(self, view_id: EntityId, axis: ScrollbarAxis) -> Scrollable<Self>
+    fn scrollable(self, axis: impl Into<ScrollbarAxis>) -> Scrollable<Self>
     where
         Self: Element,
     {
-        Scrollable::new(view_id, self, axis)
+        Scrollable::new(axis, self)
     }
 
     font_weight!(font_thin, THIN);
@@ -285,6 +308,26 @@ impl Size {
             _ => other,
         }
     }
+
+    pub fn input_px(&self) -> Pixels {
+        match self {
+            Self::Large => px(20.),
+            Self::Medium => px(12.),
+            Self::Small => px(8.),
+            Self::XSmall => px(4.),
+            _ => px(8.),
+        }
+    }
+
+    pub fn input_py(&self) -> Pixels {
+        match self {
+            Size::Large => px(16.),
+            Size::Medium => px(8.),
+            Size::Small => px(4.),
+            Size::XSmall => px(0.),
+            _ => px(4.),
+        }
+    }
 }
 
 impl From<Pixels> for Size {
@@ -374,40 +417,22 @@ impl<T: Styled> StyleSized<T> for T {
 
     #[inline]
     fn input_pl(self, size: Size) -> Self {
-        match size {
-            Size::Large => self.pl_5(),
-            Size::Medium => self.pl_3(),
-            _ => self.pl_2(),
-        }
+        self.pl(size.input_px())
     }
 
     #[inline]
     fn input_pr(self, size: Size) -> Self {
-        match size {
-            Size::Large => self.pr_5(),
-            Size::Medium => self.pr_3(),
-            _ => self.pr_2(),
-        }
+        self.pr(size.input_px())
     }
 
     #[inline]
     fn input_px(self, size: Size) -> Self {
-        match size {
-            Size::Large => self.px_5(),
-            Size::Medium => self.px_3(),
-            _ => self.px_2(),
-        }
+        self.px(size.input_px())
     }
 
     #[inline]
     fn input_py(self, size: Size) -> Self {
-        match size {
-            Size::Large => self.py_5(),
-            Size::Medium => self.py_2(),
-            Size::Small => self.py_1(),
-            Size::XSmall => self.py_0(),
-            _ => self.py_1(),
-        }
+        self.py(size.input_py())
     }
 
     #[inline]

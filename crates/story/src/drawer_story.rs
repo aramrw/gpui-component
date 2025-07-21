@@ -2,9 +2,9 @@ use std::{sync::Arc, time::Duration};
 
 use fake::Fake;
 use gpui::{
-    actions, div, prelude::FluentBuilder as _, px, App, AppContext, Context, Entity, FocusHandle,
-    Focusable, InteractiveElement as _, IntoElement, ParentElement, Render, SharedString, Styled,
-    Task, Timer, WeakEntity, Window,
+    div, prelude::FluentBuilder as _, px, App, AppContext, Context, Entity, FocusHandle, Focusable,
+    InteractiveElement as _, IntoElement, ParentElement, Render, SharedString, Styled, Task, Timer,
+    WeakEntity, Window,
 };
 use raw_window_handle::HasWindowHandle;
 
@@ -20,9 +20,8 @@ use gpui_component::{
     wry, ActiveTheme as _, ContextModal as _, Icon, IconName, Placement,
 };
 
-use crate::section;
-
-actions!(modal_story, [TestAction]);
+use crate::TestAction;
+use crate::{section, Story};
 
 pub struct ListItemDeletegate {
     story: WeakEntity<DrawerStory>,
@@ -169,7 +168,7 @@ pub struct DrawerStory {
     overlay_closable: bool,
 }
 
-impl super::Story for DrawerStory {
+impl Story for DrawerStory {
     fn title() -> &'static str {
         "Drawer"
     }
@@ -431,6 +430,7 @@ impl Render for DrawerStory {
                         section("Normal Drawer")
                             .child(
                                 Button::new("show-drawer-left")
+                                    .outline()
                                     .label("Left Drawer...")
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.open_drawer_at(Placement::Left, window, cx)
@@ -438,6 +438,7 @@ impl Render for DrawerStory {
                             )
                             .child(
                                 Button::new("show-drawer-top")
+                                    .outline()
                                     .label("Top Drawer...")
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.open_drawer_at(Placement::Top, window, cx)
@@ -445,6 +446,7 @@ impl Render for DrawerStory {
                             )
                             .child(
                                 Button::new("show-drawer-right")
+                                    .outline()
                                     .label("Right Drawer...")
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.open_drawer_at(Placement::Right, window, cx)
@@ -452,6 +454,7 @@ impl Render for DrawerStory {
                             )
                             .child(
                                 Button::new("show-drawer-bottom")
+                                    .outline()
                                     .label("Bottom Drawer...")
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.open_drawer_at(Placement::Bottom, window, cx)
@@ -464,6 +467,7 @@ impl Render for DrawerStory {
                             .child(TextInput::new(&self.input2))
                             .child(
                                 Button::new("test-action")
+                                    .outline()
                                     .label("Test Action")
                                     .flex_shrink_0()
                                     .on_click(|_, window, cx| {
@@ -479,6 +483,7 @@ impl Render for DrawerStory {
                     .child(
                         section("WebView in Drawer").child(
                             Button::new("webview")
+                                .outline()
                                 .label("Open WebView")
                                 .on_click(cx.listener(|_, _, window, cx| {
                                     let webview = cx.new(|cx| {

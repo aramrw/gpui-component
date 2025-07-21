@@ -15,7 +15,13 @@ use serde::Deserialize;
 struct MonthlyDevice {
     pub month: SharedString,
     pub desktop: f64,
-    pub color: Hsla,
+    pub color_alpha: f32,
+}
+
+impl MonthlyDevice {
+    pub fn color(&self, color: Hsla) -> Hsla {
+        color.alpha(self.color_alpha)
+    }
 }
 
 #[derive(Clone, Deserialize)]
@@ -122,6 +128,7 @@ fn chart_container(
 
 impl Render for ChartStory {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let color = cx.theme().chart_3;
         v_flex()
             .size_full()
             .gap_y_4()
@@ -157,30 +164,30 @@ impl Render for ChartStory {
                     .child(chart_container(
                         "Pie Chart",
                         PieChart::new(self.monthly_devices.clone())
-                            .value(|d| d.desktop)
+                            .value(|d| d.desktop as f32)
                             .outer_radius(100.)
-                            .color(|d| d.color),
+                            .color(move |d| d.color(color)),
                         true,
                         cx,
                     ))
                     .child(chart_container(
                         "Pie Chart - Donut",
                         PieChart::new(self.monthly_devices.clone())
-                            .value(|d| d.desktop)
+                            .value(|d| d.desktop as f32)
                             .outer_radius(100.)
                             .inner_radius(60.)
-                            .color(|d| d.color),
+                            .color(move |d| d.color(color)),
                         true,
                         cx,
                     ))
                     .child(chart_container(
                         "Pie Chart - Pad Angle",
                         PieChart::new(self.monthly_devices.clone())
-                            .value(|d| d.desktop)
+                            .value(|d| d.desktop as f32)
                             .outer_radius(100.)
                             .inner_radius(60.)
                             .pad_angle(4. / 100.)
-                            .color(|d| d.color),
+                            .color(move |d| d.color(color)),
                         true,
                         cx,
                     )),
@@ -203,7 +210,7 @@ impl Render for ChartStory {
                         BarChart::new(self.monthly_devices.clone())
                             .x(|d| d.month.clone())
                             .y(|d| d.desktop)
-                            .fill(|d| d.color),
+                            .fill(move |d| d.color(color)),
                         false,
                         cx,
                     ))

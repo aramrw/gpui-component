@@ -1,6 +1,7 @@
 mod accordion_story;
 mod alert_story;
 mod assets;
+mod avatar_story;
 mod badge_story;
 mod button_story;
 mod calendar_story;
@@ -9,11 +10,13 @@ mod checkbox_story;
 mod clipboard_story;
 mod color_picker_story;
 mod date_picker_story;
+mod description_list_story;
 mod drawer_story;
 mod dropdown_story;
 mod form_story;
 mod icon_story;
 mod image_story;
+mod indicator_story;
 mod input_story;
 mod kbd_story;
 mod label_story;
@@ -29,12 +32,14 @@ mod radio_story;
 mod resizable_story;
 mod scrollable_story;
 mod sidebar_story;
+mod skeleton_story;
 mod slider_story;
 mod switch_story;
 mod table_story;
 mod tabs_story;
 mod tag_story;
 mod textarea_story;
+mod themes;
 mod title_bar;
 mod toggle_story;
 mod tooltip_story;
@@ -43,8 +48,8 @@ mod welcome_story;
 
 pub use assets::Assets;
 use gpui::{
-    actions, div, impl_internal_actions, prelude::FluentBuilder as _, px, rems, size, AnyElement,
-    AnyView, App, AppContext, Bounds, Context, Div, Entity, EventEmitter, Focusable, Global, Hsla,
+    actions, div, prelude::FluentBuilder as _, px, rems, size, Action, AnyElement, AnyView, App,
+    AppContext, Bounds, Context, Div, Entity, EventEmitter, Focusable, Global, Hsla,
     InteractiveElement, IntoElement, KeyBinding, Menu, MenuItem, ParentElement, Render, RenderOnce,
     SharedString, StatefulInteractiveElement, Styled, Window, WindowBounds, WindowKind,
     WindowOptions,
@@ -52,6 +57,7 @@ use gpui::{
 
 pub use accordion_story::AccordionStory;
 pub use alert_story::AlertStory;
+pub use avatar_story::AvatarStory;
 pub use badge_story::BadgeStory;
 pub use button_story::ButtonStory;
 pub use calendar_story::CalendarStory;
@@ -60,11 +66,13 @@ pub use checkbox_story::CheckboxStory;
 pub use clipboard_story::ClipboardStory;
 pub use color_picker_story::ColorPickerStory;
 pub use date_picker_story::DatePickerStory;
+pub use description_list_story::DescriptionListStory;
 pub use drawer_story::DrawerStory;
 pub use dropdown_story::DropdownStory;
 pub use form_story::FormStory;
 pub use icon_story::IconStory;
 pub use image_story::ImageStory;
+pub use indicator_story::IndicatorStory;
 pub use input_story::InputStory;
 pub use kbd_story::KbdStory;
 pub use label_story::LabelStory;
@@ -81,6 +89,7 @@ pub use resizable_story::ResizableStory;
 pub use scrollable_story::ScrollableStory;
 use serde::{Deserialize, Serialize};
 pub use sidebar_story::SidebarStory;
+pub use skeleton_story::SkeletonStory;
 pub use slider_story::SliderStory;
 pub use switch_story::SwitchStory;
 pub use table_story::TableStory;
@@ -105,34 +114,37 @@ use gpui_component::{
     v_flex, ActiveTheme, ContextModal, IconName, Root, TitleBar,
 };
 
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
+#[action(namespace = story, no_json)]
 pub struct SelectScrollbarShow(ScrollbarShow);
 
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
+#[action(namespace = story, no_json)]
 pub struct SelectLocale(SharedString);
 
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
+#[action(namespace = story, no_json)]
 pub struct SelectFont(usize);
 
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
+#[action(namespace = story, no_json)]
 pub struct SelectRadius(usize);
-
-impl_internal_actions!(
-    story,
-    [SelectLocale, SelectFont, SelectRadius, SelectScrollbarShow]
-);
 
 actions!(story, [Quit, Open, CloseWindow, ToggleSearch]);
 
 const PANEL_NAME: &str = "StoryContainer";
 
+actions!(story, [TestAction, Tab, TabPrev]);
+
 pub struct AppState {
     pub invisible_panels: Entity<Vec<SharedString>>,
+    pub theme_name: Option<SharedString>,
 }
 impl AppState {
     fn init(cx: &mut App) {
         let state = Self {
             invisible_panels: cx.new(|_| Vec::new()),
+            theme_name: None,
         };
         cx.set_global::<AppState>(state);
     }
@@ -250,6 +262,7 @@ pub fn init(cx: &mut App) {
 
     gpui_component::init(cx);
     AppState::init(cx);
+    themes::init(cx);
     input_story::init(cx);
     number_input_story::init(cx);
     textarea_story::init(cx);

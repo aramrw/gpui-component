@@ -1,18 +1,26 @@
 use gpui::{
-    actions, prelude::FluentBuilder, px, App, AppContext as _, ClickEvent, Context, Entity,
+    prelude::FluentBuilder, px, Action, App, AppContext as _, ClickEvent, Context, Entity,
     Focusable, InteractiveElement, IntoElement, ParentElement as _, Render, Styled as _, Window,
 };
 
 use gpui_component::{
     button::{Button, ButtonCustomVariant, ButtonGroup, ButtonVariants as _, DropdownButton},
     checkbox::Checkbox,
-    h_flex, indigo, v_flex, white, ActiveTheme, Disableable as _, Icon, IconName, Selectable as _,
-    Sizable as _, Theme,
+    h_flex, v_flex, ActiveTheme, Disableable as _, Icon, IconName, Selectable as _, Sizable as _,
+    Theme,
 };
+use serde::Deserialize;
 
 use crate::section;
 
-actions!(button_story, [Disabled, Loading, Selected, Compact]);
+#[derive(Clone, Action, PartialEq, Eq, Deserialize)]
+#[action(namespace = button_story, no_json)]
+enum ButtonAction {
+    Disabled,
+    Loading,
+    Selected,
+    Compact,
+}
 
 pub struct ButtonStory {
     focus_handle: gpui::FocusHandle,
@@ -73,37 +81,21 @@ impl Render for ButtonStory {
         let toggle_multiple = self.toggle_multiple;
 
         let custom_variant = ButtonCustomVariant::new(cx)
-            .color(if cx.theme().mode.is_dark() {
-                indigo(800)
-            } else {
-                indigo(600)
-            })
-            .foreground(if cx.theme().mode.is_dark() {
-                white()
-            } else {
-                white()
-            })
-            .border(if cx.theme().mode.is_dark() {
-                indigo(800)
-            } else {
-                indigo(600)
-            })
-            .hover(if cx.theme().mode.is_dark() {
-                indigo(900)
-            } else {
-                indigo(700)
-            })
-            .active(if cx.theme().mode.is_dark() {
-                indigo(950)
-            } else {
-                indigo(700)
-            });
+            .color(cx.theme().magenta)
+            .foreground(cx.theme().primary_foreground)
+            .border(cx.theme().magenta)
+            .hover(cx.theme().magenta.opacity(0.1))
+            .active(cx.theme().magenta);
 
         v_flex()
-            .on_action(cx.listener(|this, _: &Disabled, _, _| this.disabled = !this.disabled))
-            .on_action(cx.listener(|this, _: &Loading, _, _| this.loading = !this.loading))
-            .on_action(cx.listener(|this, _: &Selected, _, _| this.selected = !this.selected))
-            .on_action(cx.listener(|this, _: &Compact, _, _| this.compact = !this.compact))
+            .on_action(
+                cx.listener(|this, action: &ButtonAction, _, _| match action {
+                    ButtonAction::Disabled => this.disabled = !this.disabled,
+                    ButtonAction::Loading => this.loading = !this.loading,
+                    ButtonAction::Selected => this.selected = !this.selected,
+                    ButtonAction::Compact => this.compact = !this.compact,
+                }),
+            )
             .gap_6()
             .child(
                 h_flex()
@@ -576,45 +568,9 @@ impl Render for ButtonStory {
                     ),
             )
             .child(
-                section("Custom Button")
-                    .child(
-                        Button::new("button-6-custom")
-                            .custom(custom_variant)
-                            .label("Custom Button")
-                            .disabled(disabled)
-                            .selected(selected)
-                            .loading(loading)
-                            .when(compact, |this| this.compact())
-                            .on_click(Self::on_click),
-                    )
-                    .child(
-                        Button::new("button-outline-6-custom")
-                            .outline()
-                            .custom(custom_variant)
-                            .label("Outline Button")
-                            .disabled(disabled)
-                            .selected(selected)
-                            .loading(loading)
-                            .when(compact, |this| this.compact())
-                            .on_click(Self::on_click),
-                    )
-                    .child(
-                        Button::new("button-outline-6-custom-1")
-                            .outline()
-                            .icon(IconName::Bell)
-                            .custom(custom_variant)
-                            .label("Icon Button")
-                            .disabled(disabled)
-                            .selected(selected)
-                            .loading(loading)
-                            .when(compact, |this| this.compact())
-                            .on_click(Self::on_click),
-                    ),
-            )
-            .child(
                 section("Button Group").child(
                     ButtonGroup::new("button-group")
-                        .small()
+                        .outline()
                         .disabled(disabled)
                         .child(
                             Button::new("button-one")
@@ -657,7 +613,7 @@ impl Render for ButtonStory {
                 )
                 .child(
                     ButtonGroup::new("toggle-button-group")
-                        .primary()
+                        .outline()
                         .compact()
                         .multiple(toggle_multiple)
                         .child(
@@ -697,10 +653,26 @@ impl Render for ButtonStory {
                             .button(Button::new("btn").label("Click Me"))
                             .selected(selected)
                             .popup_menu(move |this, _, _| {
-                                this.menu("Disabled", Box::new(Disabled))
-                                    .menu("Loading", Box::new(Loading))
-                                    .menu("Selected", Box::new(Selected))
-                                    .menu("Compact", Box::new(Compact))
+                                this.menu_with_check(
+                                    "Disabled",
+                                    disabled,
+                                    Box::new(ButtonAction::Disabled),
+                                )
+                                .menu_with_check(
+                                    "Loading",
+                                    loading,
+                                    Box::new(ButtonAction::Loading),
+                                )
+                                .menu_with_check(
+                                    "Selected",
+                                    selected,
+                                    Box::new(ButtonAction::Selected),
+                                )
+                                .menu_with_check(
+                                    "Compact",
+                                    compact,
+                                    Box::new(ButtonAction::Compact),
+                                )
                             }),
                     )
                     .child(
@@ -708,10 +680,26 @@ impl Render for ButtonStory {
                             .button(Button::new("btn").label("Click Me"))
                             .selected(selected)
                             .popup_menu(move |this, _, _| {
-                                this.menu("Disabled", Box::new(Disabled))
-                                    .menu("Loading", Box::new(Loading))
-                                    .menu("Selected", Box::new(Selected))
-                                    .menu("Compact", Box::new(Compact))
+                                this.menu_with_check(
+                                    "Disabled",
+                                    disabled,
+                                    Box::new(ButtonAction::Disabled),
+                                )
+                                .menu_with_check(
+                                    "Loading",
+                                    loading,
+                                    Box::new(ButtonAction::Loading),
+                                )
+                                .menu_with_check(
+                                    "Selected",
+                                    selected,
+                                    Box::new(ButtonAction::Selected),
+                                )
+                                .menu_with_check(
+                                    "Compact",
+                                    compact,
+                                    Box::new(ButtonAction::Compact),
+                                )
                             }),
                     )
                     .child(
@@ -720,10 +708,26 @@ impl Render for ButtonStory {
                             .button(Button::new("btn").label("Outline Dropdown"))
                             .selected(selected)
                             .popup_menu(move |this, _, _| {
-                                this.menu("Disabled", Box::new(Disabled))
-                                    .menu("Loading", Box::new(Loading))
-                                    .menu("Selected", Box::new(Selected))
-                                    .menu("Compact", Box::new(Compact))
+                                this.menu_with_check(
+                                    "Disabled",
+                                    disabled,
+                                    Box::new(ButtonAction::Disabled),
+                                )
+                                .menu_with_check(
+                                    "Loading",
+                                    loading,
+                                    Box::new(ButtonAction::Loading),
+                                )
+                                .menu_with_check(
+                                    "Selected",
+                                    selected,
+                                    Box::new(ButtonAction::Selected),
+                                )
+                                .menu_with_check(
+                                    "Compact",
+                                    compact,
+                                    Box::new(ButtonAction::Compact),
+                                )
                             }),
                     )
                     .child(
@@ -732,10 +736,26 @@ impl Render for ButtonStory {
                             .button(Button::new("btn").label("Ghost Dropdown"))
                             .selected(selected)
                             .popup_menu(move |this, _, _| {
-                                this.menu("Disabled", Box::new(Disabled))
-                                    .menu("Loading", Box::new(Loading))
-                                    .menu("Selected", Box::new(Selected))
-                                    .menu("Compact", Box::new(Compact))
+                                this.menu_with_check(
+                                    "Disabled",
+                                    disabled,
+                                    Box::new(ButtonAction::Disabled),
+                                )
+                                .menu_with_check(
+                                    "Loading",
+                                    loading,
+                                    Box::new(ButtonAction::Loading),
+                                )
+                                .menu_with_check(
+                                    "Selected",
+                                    selected,
+                                    Box::new(ButtonAction::Selected),
+                                )
+                                .menu_with_check(
+                                    "Compact",
+                                    compact,
+                                    Box::new(ButtonAction::Compact),
+                                )
                             }),
                     ),
             )
@@ -858,6 +878,42 @@ impl Render for ButtonStory {
                             .selected(selected)
                             .loading(loading)
                             .when(compact, |this| this.compact()),
+                    ),
+            )
+            .child(
+                section("Custom Button")
+                    .child(
+                        Button::new("button-6-custom")
+                            .custom(custom_variant)
+                            .label("Custom Button")
+                            .disabled(disabled)
+                            .selected(selected)
+                            .loading(loading)
+                            .when(compact, |this| this.compact())
+                            .on_click(Self::on_click),
+                    )
+                    .child(
+                        Button::new("button-outline-6-custom")
+                            .outline()
+                            .custom(custom_variant)
+                            .label("Outline Button")
+                            .disabled(disabled)
+                            .selected(selected)
+                            .loading(loading)
+                            .when(compact, |this| this.compact())
+                            .on_click(Self::on_click),
+                    )
+                    .child(
+                        Button::new("button-outline-6-custom-1")
+                            .outline()
+                            .icon(IconName::Bell)
+                            .custom(custom_variant)
+                            .label("Icon Button")
+                            .disabled(disabled)
+                            .selected(selected)
+                            .loading(loading)
+                            .when(compact, |this| this.compact())
+                            .on_click(Self::on_click),
                     ),
             )
     }

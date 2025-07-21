@@ -39,6 +39,7 @@ impl Gallery {
                 vec![
                     StoryContainer::panel::<AccordionStory>(window, cx),
                     StoryContainer::panel::<AlertStory>(window, cx),
+                    StoryContainer::panel::<AvatarStory>(window, cx),
                     StoryContainer::panel::<BadgeStory>(window, cx),
                     StoryContainer::panel::<ButtonStory>(window, cx),
                     StoryContainer::panel::<CalendarStory>(window, cx),
@@ -47,10 +48,12 @@ impl Gallery {
                     StoryContainer::panel::<ClipboardStory>(window, cx),
                     StoryContainer::panel::<ColorPickerStory>(window, cx),
                     StoryContainer::panel::<DatePickerStory>(window, cx),
+                    StoryContainer::panel::<DescriptionListStory>(window, cx),
                     StoryContainer::panel::<DrawerStory>(window, cx),
                     StoryContainer::panel::<DropdownStory>(window, cx),
                     StoryContainer::panel::<FormStory>(window, cx),
                     StoryContainer::panel::<IconStory>(window, cx),
+                    StoryContainer::panel::<IndicatorStory>(window, cx),
                     StoryContainer::panel::<ImageStory>(window, cx),
                     StoryContainer::panel::<InputStory>(window, cx),
                     StoryContainer::panel::<KbdStory>(window, cx),
@@ -67,6 +70,7 @@ impl Gallery {
                     StoryContainer::panel::<ResizableStory>(window, cx),
                     StoryContainer::panel::<ScrollableStory>(window, cx),
                     StoryContainer::panel::<SidebarStory>(window, cx),
+                    StoryContainer::panel::<SkeletonStory>(window, cx),
                     StoryContainer::panel::<SliderStory>(window, cx),
                     StoryContainer::panel::<SwitchStory>(window, cx),
                     StoryContainer::panel::<TableStory>(window, cx),
@@ -89,24 +93,17 @@ impl Gallery {
         };
 
         if let Some(init_story) = init_story {
-            this.set_active_story(init_story, cx);
+            this.set_active_story(init_story, window, cx);
         }
 
         this
     }
 
-    fn set_active_story(&mut self, name: &str, cx: &mut App) {
-        let group_index = 1;
-        let Some(story_index) = self.stories.get(group_index).and_then(|(_, stories)| {
-            stories
-                .iter()
-                .position(|story| story.read(cx).name.to_lowercase().replace("story", "") == name)
-        }) else {
-            return;
-        };
-
-        self.active_group_index = Some(group_index);
-        self.active_index = Some(story_index);
+    fn set_active_story(&mut self, name: &str, window: &mut Window, cx: &mut App) {
+        let name = name.to_string();
+        self.search_input.update(cx, |this, cx| {
+            this.set_value(&name, window, cx);
+        })
     }
 
     fn view(init_story: Option<&str>, window: &mut Window, cx: &mut App) -> Entity<Self> {
@@ -213,7 +210,7 @@ impl Render for Gallery {
                                     )
                                     .child(
                                         div()
-                                            .bg(cx.theme().sidebar_border)
+                                            .bg(cx.theme().secondary)
                                             .px_1()
                                             .rounded_full()
                                             .flex_1()

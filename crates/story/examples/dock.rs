@@ -4,7 +4,7 @@ use gpui_component::{
     button::{Button, ButtonVariants as _},
     dock::{ClosePanel, DockArea, DockAreaState, DockEvent, DockItem, DockPlacement, ToggleZoom},
     popup_menu::PopupMenuExt,
-    IconName, Root, Sizable, Theme,
+    IconName, Root, Sizable,
 };
 
 use serde::Deserialize;
@@ -16,13 +16,14 @@ use story::{
     SwitchStory, TableStory, TooltipStory, WebViewStory,
 };
 
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
+#[action(namespace = story, no_json)]
 pub struct AddPanel(DockPlacement);
 
-#[derive(Clone, PartialEq, Eq, Deserialize)]
+#[derive(Action, Clone, PartialEq, Eq, Deserialize)]
+#[action(namespace = story, no_json)]
 pub struct TogglePanelVisible(SharedString);
 
-impl_internal_actions!(story, [AddPanel, TogglePanelVisible]);
 actions!(story, [ToggleDockToggleButton]);
 
 const MAIN_DOCK_AREA: DockAreaTab = DockAreaTab {
@@ -37,8 +38,6 @@ const STATE_FILE: &str = "docks.json";
 
 pub fn init(cx: &mut App) {
     cx.on_action(|_action: &Open, _cx: &mut App| {});
-
-    gpui_component::init(cx);
     story::init(cx);
 
     cx.bind_keys(vec![
@@ -64,12 +63,6 @@ struct DockAreaTab {
 
 impl StoryWorkspace {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        window
-            .observe_window_appearance(|window, cx| {
-                Theme::sync_system_appearance(Some(window), cx);
-            })
-            .detach();
-
         let dock_area =
             cx.new(|cx| DockArea::new(MAIN_DOCK_AREA.id, Some(MAIN_DOCK_AREA.version), window, cx));
         let weak_dock_area = dock_area.downgrade();

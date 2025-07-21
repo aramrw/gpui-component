@@ -5,7 +5,7 @@ use gpui::{
 use gpui_component::{
     button::{Button, ButtonVariant, ButtonVariants},
     dock::PanelControl,
-    gray_500, green_500, h_flex, red_500, v_flex, Icon, IconName,
+    h_flex, neutral_500, v_flex, ActiveTheme as _, Icon, IconName,
 };
 
 use crate::section;
@@ -51,7 +51,7 @@ impl Focusable for IconStory {
 }
 
 impl Render for IconStory {
-    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .gap_4()
             .child(
@@ -70,9 +70,13 @@ impl Render for IconStory {
                     .child(
                         Icon::new(IconName::Maximize)
                             .size_6()
-                            .text_color(green_500()),
+                            .text_color(cx.theme().green),
                     )
-                    .child(Icon::new(IconName::Minimize).size_6().text_color(red_500())),
+                    .child(
+                        Icon::new(IconName::Minimize)
+                            .size_6()
+                            .text_color(cx.theme().red),
+                    ),
             )
             .child(
                 section("Icon Button").child(
@@ -80,17 +84,29 @@ impl Render for IconStory {
                         .gap_4()
                         .child(
                             Button::new("like1")
-                                .icon(Icon::new(IconName::Heart).text_color(gray_500()).size_6())
+                                .icon(
+                                    Icon::new(IconName::Heart)
+                                        .text_color(neutral_500())
+                                        .size_6(),
+                                )
                                 .with_variant(ButtonVariant::Ghost),
                         )
                         .child(
                             Button::new("like2")
-                                .icon(Icon::new(IconName::HeartOff).text_color(red_500()).size_6())
+                                .icon(
+                                    Icon::new(IconName::HeartOff)
+                                        .text_color(cx.theme().red)
+                                        .size_6(),
+                                )
                                 .with_variant(ButtonVariant::Ghost),
                         )
                         .child(
                             Button::new("like3")
-                                .icon(Icon::new(IconName::Heart).text_color(green_500()).size_6())
+                                .icon(
+                                    Icon::new(IconName::Heart)
+                                        .text_color(cx.theme().green)
+                                        .size_6(),
+                                )
                                 .with_variant(ButtonVariant::Ghost),
                         ),
                 ),

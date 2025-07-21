@@ -1,7 +1,7 @@
 use gpui::{
-    actions, prelude::FluentBuilder as _, px, App, AppContext as _, Context, Entity, FocusHandle,
-    Focusable, InteractiveElement, IntoElement, KeyBinding, ParentElement as _, Render,
-    SharedString, Styled, Subscription, Window,
+    prelude::FluentBuilder as _, px, App, AppContext as _, Context, Entity, FocusHandle, Focusable,
+    InteractiveElement, IntoElement, KeyBinding, ParentElement as _, Render, SharedString, Styled,
+    Subscription, Window,
 };
 use gpui_component::{
     checkbox::Checkbox,
@@ -10,8 +10,7 @@ use gpui_component::{
     v_flex, FocusableCycle, Sizable, StyledExt,
 };
 
-use crate::section;
-actions!(input_story, [Tab, TabPrev]);
+use crate::{section, Tab, TabPrev};
 
 const CONTEXT: &str = "OtpInputStory";
 
@@ -139,16 +138,12 @@ impl Render for OtpInputStory {
             .size_full()
             .gap_5()
             .child(
-                h_flex()
-                    .items_center()
-                    .justify_between()
-                    .child("OTP Input")
-                    .child(
-                        Checkbox::new("otp-mask")
-                            .label("Masked")
-                            .checked(self.otp_masked)
-                            .on_click(cx.listener(Self::toggle_opt_masked)),
-                    ),
+                h_flex().items_center().child(
+                    Checkbox::new("otp-mask")
+                        .label("Masked")
+                        .checked(self.otp_masked)
+                        .on_click(cx.listener(Self::toggle_opt_masked)),
+                ),
             )
             .child(
                 section("Normal")

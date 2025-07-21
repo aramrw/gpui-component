@@ -1,5 +1,7 @@
 # GPUI Component
 
+[![Build Status](https://github.com/longbridge/gpui-component/actions/workflows/ci.yml/badge.svg)](https://github.com/longbridge/gpui-component/actions/workflows/ci.yml)
+
 UI components for building fantastic desktop applications using [GPUI](https://gpui.rs).
 
 ## Features
@@ -14,6 +16,7 @@ UI components for building fantastic desktop applications using [GPUI](https://g
 - **Content Rendering**: Native support for Markdown and simple HTML.
 - **Charting**: Built-in charts for visualization your data.
 - **Code Highlighting**: Code Editor and Syntax highlighting.
+- **Wef**: (Experimental) Offscreen rendering webview based on [CEF](https://github.com/chromiumembedded/cef).
 
 ## Showcase
 

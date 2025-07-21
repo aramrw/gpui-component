@@ -1,8 +1,9 @@
 use crate::actions::{Cancel, Confirm, SelectNext, SelectPrev};
+use crate::menu::menu_item::MenuItem;
 use crate::scroll::{Scrollbar, ScrollbarState};
 use crate::{
-    button::Button, h_flex, list::ListItem, popover::Popover, v_flex, ActiveTheme, Icon, IconName,
-    Selectable, Sizable as _,
+    button::Button, h_flex, popover::Popover, v_flex, ActiveTheme, Icon, IconName, Selectable,
+    Sizable as _,
 };
 use crate::{Kbd, StyledExt};
 use gpui::{
@@ -12,7 +13,6 @@ use gpui::{
     SharedString, StatefulInteractiveElement, Styled, WeakEntity, Window,
 };
 use gpui::{MouseDownEvent, Subscription};
-use std::cell::Cell;
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -109,7 +109,7 @@ pub struct PopupMenu {
     scrollable: bool,
     external_link_icon: bool,
     scroll_handle: ScrollHandle,
-    scroll_state: Rc<Cell<ScrollbarState>>,
+    scroll_state: ScrollbarState,
 
     previous_focus_handle: Option<FocusHandle>,
     _subscriptions: Vec<Subscription>,
@@ -144,7 +144,7 @@ impl PopupMenu {
                 bounds: Bounds::default(),
                 scrollable: false,
                 scroll_handle: ScrollHandle::default(),
-                scroll_state: Rc::new(Cell::new(ScrollbarState::default())),
+                scroll_state: ScrollbarState::default(),
                 external_link_icon: true,
                 _subscriptions,
             };
@@ -687,7 +687,7 @@ impl PopupMenu {
         const EDGE_PADDING: Pixels = px(8.);
         const INNER_PADDING: Pixels = px(4.);
 
-        let this = ListItem::new(ix)
+        let this = MenuItem::new(ix)
             .relative()
             .text_sm()
             .py_0()
@@ -706,7 +706,7 @@ impl PopupMenu {
                     .h(px(1.))
                     .mx_neg_1()
                     .my_0p5()
-                    .bg(cx.theme().muted),
+                    .bg(cx.theme().border),
             ),
             PopupMenuItem::Label(label) => this.disabled(true).cursor_default().child(
                 h_flex()
@@ -814,10 +814,10 @@ impl PopupMenu {
                     )
                     .when(hovered, |this| {
                         let (anchor, left) =
-                            if window.bounds().size.width - bounds.origin.x < max_width {
-                                (Corner::TopRight, -px(12.))
+                            if max_width + bounds.origin.x > window.bounds().size.width {
+                                (Corner::TopRight, -px(14.))
                             } else {
-                                (Corner::TopLeft, bounds.size.width + px(4.))
+                                (Corner::TopLeft, bounds.size.width)
                             };
 
                         let is_bottom_pos =
@@ -830,7 +830,7 @@ impl PopupMenu {
                                     div()
                                         .occlude()
                                         .when(is_bottom_pos, |this| this.bottom_0())
-                                        .when(!is_bottom_pos, |this| this.top(-px(4.)))
+                                        .when(!is_bottom_pos, |this| this.top_neg_1())
                                         .left(left)
                                         .child(menu.clone()),
                                 )
@@ -898,7 +898,6 @@ impl Render for PopupMenu {
             .popover_style(cx)
             .text_color(cx.theme().popover_foreground)
             .relative()
-            .p_1()
             .child(
                 div()
                     .id("items")
@@ -909,6 +908,7 @@ impl Render for PopupMenu {
                     })
                     .child(
                         v_flex()
+                            .p_1()
                             .gap_y_0p5()
                             .min_w(rems(8.))
                             .when_some(self.min_width, |this, min_width| this.min_w(min_width))
@@ -925,9 +925,9 @@ impl Render for PopupMenu {
                                 self.menu_items
                                     .iter()
                                     .enumerate()
-                                    // Skip last separator
+                                    // Ignore last separator
                                     .filter(|(ix, item)| {
-                                        !(*ix == items_count - 1 && item.is_separator())
+                                        !(*ix + 1 == items_count && item.is_separator())
                                     })
                                     .map(|(ix, item)| {
                                         self.render_item(ix, item, item_state, window, cx)
@@ -944,12 +944,7 @@ impl Render for PopupMenu {
                         .left_0()
                         .right_0p5()
                         .bottom_0p5()
-                        .child(Scrollbar::vertical(
-                            cx.entity_id(),
-                            self.scroll_state.clone(),
-                            self.scroll_handle.clone(),
-                            self.bounds.size,
-                        )),
+                        .child(Scrollbar::vertical(&self.scroll_state, &self.scroll_handle)),
                 )
             })
     }

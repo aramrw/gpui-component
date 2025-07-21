@@ -1,18 +1,10 @@
 use gpui::{
-    actions, div, App, AppContext as _, Context, Entity, FocusHandle, Focusable,
-    InteractiveElement, IntoElement, KeyBinding, ParentElement as _, Render, Styled, Subscription,
-    Window,
+    div, App, AppContext as _, Context, Entity, FocusHandle, Focusable, InteractiveElement,
+    IntoElement, KeyBinding, ParentElement as _, Render, Styled, Subscription, Window,
 };
 
-use crate::section;
-use gpui_component::{
-    button::{Button, ButtonVariant, ButtonVariants as _},
-    h_flex,
-    input::{InputEvent, InputState, MaskPattern, TextInput},
-    v_flex, ContextModal, FocusableCycle, Icon, IconName, Sizable,
-};
-
-actions!(input_story, [Tab, TabPrev]);
+use crate::{section, Tab, TabPrev};
+use gpui_component::{button::*, input::*, *};
 
 const CONTEXT: &str = "InputStory";
 
@@ -37,6 +29,7 @@ pub struct InputStory {
     phone_input: Entity<InputState>,
     mask_input2: Entity<InputState>,
     currency_input: Entity<InputState>,
+    custom_input: Entity<InputState>,
 
     _subscriptions: Vec<Subscription>,
 }
@@ -98,6 +91,8 @@ impl InputStory {
                 fraction: Some(3),
             })
         });
+        let custom_input =
+            cx.new(|cx| InputState::new(window, cx).placeholder("here is a custom input"));
 
         let _subscriptions = vec![
             cx.subscribe_in(&input1, window, Self::on_input_event),
@@ -124,6 +119,7 @@ impl InputStory {
             phone_input,
             mask_input2,
             currency_input,
+            custom_input,
             _subscriptions,
         }
     }
@@ -157,14 +153,17 @@ impl FocusableCycle for InputStory {
         [
             self.input1.focus_handle(cx),
             self.input2.focus_handle(cx),
-            self.input_esc.focus_handle(cx),
             self.disabled_input.focus_handle(cx),
             self.mask_input.focus_handle(cx),
             self.prefix_input1.focus_handle(cx),
             self.both_input1.focus_handle(cx),
             self.suffix_input1.focus_handle(cx),
+            self.currency_input.focus_handle(cx),
+            self.phone_input.focus_handle(cx),
+            self.mask_input2.focus_handle(cx),
             self.large_input.focus_handle(cx),
             self.small_input.focus_handle(cx),
+            self.input_esc.focus_handle(cx),
         ]
         .to_vec()
     }
@@ -189,7 +188,7 @@ impl Render for InputStory {
                 section("Normal Input")
                     .max_w_md()
                     .child(TextInput::new(&self.input1).cleanable())
-                    .child(self.input2.clone()),
+                    .child(TextInput::new(&self.input2)),
             )
             .child(
                 section("Input State")
@@ -203,28 +202,18 @@ impl Render for InputStory {
                     .child(
                         TextInput::new(&self.prefix_input1)
                             .cleanable()
-                            .prefix(Icon::new(IconName::Search).small().ml_3()),
+                            .prefix(Icon::new(IconName::Search).small()),
                     )
                     .child(
                         TextInput::new(&self.both_input1)
                             .cleanable()
-                            .prefix(div().child(Icon::new(IconName::Search).small()).ml_3())
-                            .suffix(
-                                Button::new("info")
-                                    .ghost()
-                                    .icon(IconName::Info)
-                                    .xsmall()
-                                    .mr_3(),
-                            ),
+                            .prefix(div().child(Icon::new(IconName::Search).small()))
+                            .suffix(Button::new("info").ghost().icon(IconName::Info).xsmall()),
                     )
                     .child(
-                        TextInput::new(&self.suffix_input1).cleanable().suffix(
-                            Button::new("info")
-                                .ghost()
-                                .icon(IconName::Info)
-                                .xsmall()
-                                .mr_3(),
-                        ),
+                        TextInput::new(&self.suffix_input1)
+                            .cleanable()
+                            .suffix(Button::new("info").ghost().icon(IconName::Info).xsmall()),
                     ),
             )
             .child(
@@ -264,8 +253,8 @@ impl Render for InputStory {
             .child(
                 section("Input Size")
                     .max_w_md()
-                    .child(TextInput::new(&self.large_input).large())
-                    .child(TextInput::new(&self.small_input).small()),
+                    .child(TextInput::new(&self.large_input).large().cleanable())
+                    .child(TextInput::new(&self.small_input).small().cleanable()),
             )
             .child(
                 section("Cleanable and ESC to clean")
@@ -283,25 +272,17 @@ impl Render for InputStory {
                     ))),
             )
             .child(
-                h_flex()
-                    .items_center()
-                    .w_full()
-                    .gap_3()
-                    .child(
-                        Button::new("btn-submit")
-                            .flex_1()
-                            .with_variant(ButtonVariant::Primary)
-                            .label("Submit")
-                            .on_click(cx.listener(|_, _, window, cx| {
-                                window.dispatch_action(Box::new(Tab), cx)
-                            })),
-                    )
-                    .child(
-                        Button::new("btn-cancel")
-                            .flex_1()
-                            .label("Cancel")
-                            .into_element(),
-                    ),
+                section("Appearance false").max_w_md().child(
+                    div()
+                        .border_b_2()
+                        .px_6()
+                        .py_3()
+                        .border_color(cx.theme().border)
+                        .bg(cx.theme().secondary)
+                        .text_color(cx.theme().secondary_foreground)
+                        .w_full()
+                        .child(TextInput::new(&self.custom_input).appearance(false)),
+                ),
             )
     }
 }

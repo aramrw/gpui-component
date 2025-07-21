@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use gpui::{
     div, prelude::FluentBuilder, px, relative, rems, App, AppContext, Context, Corner,
-    DismissEvent, DragMoveEvent, Empty, Entity, EventEmitter, FocusHandle, Focusable,
+    DismissEvent, Div, DragMoveEvent, Empty, Entity, EventEmitter, FocusHandle, Focusable,
     InteractiveElement as _, IntoElement, ParentElement, Pixels, Render, ScrollHandle,
     SharedString, StatefulInteractiveElement, StyleRefinement, Styled, WeakEntity, Window,
 };
@@ -587,6 +587,8 @@ impl TabPanel {
         let bottom_dock_button = self.render_dock_toggle_button(DockPlacement::Bottom, window, cx);
         let right_dock_button = self.render_dock_toggle_button(DockPlacement::Right, window, cx);
 
+        let is_bottom_dock = bottom_dock_button.is_some();
+
         if self.panels.len() == 1 && panel_style == PanelStyle::Default {
             let panel = self.panels.get(0).unwrap();
 
@@ -682,7 +684,7 @@ impl TabPanel {
             )
             .children(self.panels.iter().enumerate().filter_map(|(ix, panel)| {
                 let mut active = state.active_panel.as_ref() == Some(panel);
-                let disabled = self.collapsed;
+                let droppable = self.collapsed;
 
                 if !panel.visible(cx) {
                     return None;
@@ -704,12 +706,22 @@ impl TabPanel {
                         })
                         .py_2()
                         .selected(active)
-                        .disabled(disabled)
-                        .when(!disabled, |this| {
-                            this.on_click(cx.listener(move |view, _, window, cx| {
+                        .on_click(cx.listener({
+                            let is_collapsed = self.collapsed;
+                            let dock_area = self.dock_area.clone();
+                            move |view, _, window, cx| {
                                 view.set_active_ix(ix, window, cx);
-                            }))
-                            .when(state.draggable, |this| {
+
+                                // Open dock if clicked on the collapsed bottom dock
+                                if is_bottom_dock && is_collapsed {
+                                    _ = dock_area.update(cx, |dock_area, cx| {
+                                        dock_area.toggle_dock(DockPlacement::Bottom, window, cx);
+                                    });
+                                }
+                            }
+                        }))
+                        .when(!droppable, |this| {
+                            this.when(state.draggable, |this| {
                                 this.on_drag(
                                     DragPanel::new(panel.clone(), view.clone()),
                                     |drag, _, _, cx| {
@@ -761,25 +773,27 @@ impl TabPanel {
                         ))
                     }),
             )
-            .suffix(
-                h_flex()
-                    .items_center()
-                    .top_0()
-                    .right_0()
-                    .border_l_1()
-                    .border_b_1()
-                    .h_full()
-                    .border_color(cx.theme().border)
-                    .bg(cx.theme().tab_bar)
-                    .px_2()
-                    .gap_1()
-                    .children(
-                        self.active_panel(cx)
-                            .and_then(|panel| panel.title_suffix(window, cx)),
-                    )
-                    .child(self.render_toolbar(state, window, cx))
-                    .when_some(right_dock_button, |this, btn| this.child(btn)),
-            )
+            .when(!self.collapsed, |this| {
+                this.suffix(
+                    h_flex()
+                        .items_center()
+                        .top_0()
+                        .right_0()
+                        .border_l_1()
+                        .border_b_1()
+                        .h_full()
+                        .border_color(cx.theme().border)
+                        .bg(cx.theme().tab_bar)
+                        .px_2()
+                        .gap_1()
+                        .children(
+                            self.active_panel(cx)
+                                .and_then(|panel| panel.title_suffix(window, cx)),
+                        )
+                        .child(self.render_toolbar(state, window, cx))
+                        .when_some(right_dock_button, |this, btn| this.child(btn)),
+                )
+            })
             .into_any_element()
     }
 
@@ -1106,6 +1120,14 @@ impl TabPanel {
             });
         }
     }
+
+    // Bind actions to the tab panel, only when the tab panel is not collapsed.
+    fn bind_actions(&self, cx: &mut Context<Self>) -> Div {
+        v_flex().when(!self.collapsed, |this| {
+            this.on_action(cx.listener(Self::on_action_toggle_zoom))
+                .on_action(cx.listener(Self::on_action_close_panel))
+        })
+    }
 }
 
 impl Focusable for TabPanel {
@@ -1137,11 +1159,9 @@ impl Render for TabPanel {
             state.closable = false;
         }
 
-        v_flex()
+        self.bind_actions(cx)
             .id("tab-panel")
             .track_focus(&focus_handle)
-            .on_action(cx.listener(Self::on_action_toggle_zoom))
-            .on_action(cx.listener(Self::on_action_close_panel))
             .size_full()
             .overflow_hidden()
             .bg(cx.theme().background)

@@ -2,17 +2,13 @@ use std::ops::Range;
 
 use gpui::{
     div, img, prelude::FluentBuilder as _, px, relative, rems, AnyElement, App, DefiniteLength,
-    ElementId, FontStyle, FontWeight, Half, HighlightStyle, InteractiveElement as _,
+    Div, ElementId, FontStyle, FontWeight, Half, HighlightStyle, InteractiveElement as _,
     InteractiveText, IntoElement, Length, ObjectFit, ParentElement, Rems, RenderOnce, SharedString,
     SharedUri, Styled, StyledImage as _, StyledText, Window,
 };
 use markdown::mdast;
 
-use crate::{
-    h_flex,
-    highlighter::{LanguageRegistry, SyntaxHighlighter},
-    v_flex, ActiveTheme as _, Icon, IconName,
-};
+use crate::{h_flex, highlighter::SyntaxHighlighter, v_flex, ActiveTheme as _, Icon, IconName};
 
 use super::{utils::list_item_prefix, TextViewStyle};
 
@@ -201,6 +197,25 @@ impl Paragraph {
             Self::Image { .. } => 1,
         }
     }
+
+    /// Try to merge two paragraphs, if they are both text elements.
+    ///
+    /// - Returns `true` if other have merge into self.
+    /// - Returns `false` if not able to merge.
+    pub fn try_merge(&mut self, other: &Self) -> bool {
+        if let Self::Texts { children, .. } = self {
+            if let Self::Texts {
+                children: other_children,
+                ..
+            } = other
+            {
+                children.extend(other_children.clone());
+                return true;
+            }
+        }
+
+        false
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -217,13 +232,11 @@ impl CodeBlock {
         _: &TextViewStyle,
         cx: &mut App,
     ) -> Self {
-        let theme = LanguageRegistry::global(cx)
-            .theme(cx.theme().is_dark())
-            .clone();
+        let theme = cx.theme().highlight_theme.clone();
         let mut styles = vec![];
         if let Some(lang) = &lang {
             let mut highlighter = SyntaxHighlighter::new(&lang, cx);
-            highlighter.update(&(0..0), code.clone(), "", cx);
+            highlighter.update(&(0..0), &code, "", cx);
             styles = highlighter.styles(&(0..code.len()), &theme);
         };
 
@@ -244,7 +257,9 @@ pub enum Node {
         level: u8,
         children: Paragraph,
     },
-    Blockquote(Paragraph),
+    Blockquote {
+        children: Vec<Node>,
+    },
     List {
         /// Only contains ListItem, others will be ignored
         children: Vec<Node>,
@@ -262,15 +277,10 @@ pub enum Node {
         html: bool,
     },
     Divider,
-    Ignore,
     Unknown,
 }
 
 impl Node {
-    pub(super) fn is_ignore(&self) -> bool {
-        matches!(self, Self::Ignore)
-    }
-
     pub(super) fn is_list_item(&self) -> bool {
         matches!(self, Self::ListItem { .. })
     }
@@ -283,11 +293,7 @@ impl Node {
     pub(super) fn compact(&self) -> Node {
         match self {
             Self::Root { children } => {
-                let children = children
-                    .iter()
-                    .map(|c| c.compact())
-                    .filter(|c| !c.is_ignore())
-                    .collect::<Vec<_>>();
+                let children = children.iter().map(|c| c.compact()).collect::<Vec<_>>();
                 if children.len() == 1 {
                     children.first().unwrap().compact()
                 } else {
@@ -316,8 +322,7 @@ impl RenderOnce for Paragraph {
                     } else {
                         text_node.text.as_str()
                     };
-
-                    text.push_str(part);
+                    text.push_str(&part);
 
                     let mut node_highlights = vec![];
                     for (range, style) in text_node.marks {
@@ -415,16 +420,43 @@ impl Node {
             } => v_flex()
                 .when(spread, |this| this.child(div()))
                 .children({
-                    let mut items = Vec::with_capacity(children.len());
-                    for child in children.into_iter() {
+                    let mut items: Vec<Div> = Vec::with_capacity(children.len());
+                    for (child_ix, child) in children.iter().enumerate() {
                         match &child {
                             Node::Paragraph(_) => {
+                                let last_not_list = child_ix > 0
+                                    && !matches!(children[child_ix - 1], Node::List { .. });
+
+                                let text = child.clone().render(
+                                    Some(ListState {
+                                        depth: state.depth + 1,
+                                        ordered: state.ordered,
+                                        todo: checked.is_some(),
+                                    }),
+                                    false,
+                                    true,
+                                    text_view_style,
+                                    window,
+                                    cx,
+                                );
+
+                                // merge content into last item.
+                                if last_not_list {
+                                    if let Some(item_item) = items.last_mut() {
+                                        item_item.extend(vec![div()
+                                            .overflow_hidden()
+                                            .child(text)
+                                            .into_any_element()]);
+                                        continue;
+                                    }
+                                }
+
                                 items.push(
                                     h_flex()
+                                        .flex_1()
                                         .relative()
                                         .items_start()
                                         .content_start()
-                                        .flex_1()
                                         .when(!state.todo && checked.is_none(), |this| {
                                             this.child(list_item_prefix(
                                                 ix,
@@ -433,7 +465,7 @@ impl Node {
                                             ))
                                         })
                                         .when_some(checked, |this, checked| {
-                                            // Checkmark
+                                            // Todo list checkbox
                                             this.child(
                                                 div()
                                                     .flex()
@@ -443,10 +475,11 @@ impl Node {
                                                     .items_center()
                                                     .justify_center()
                                                     .rounded(cx.theme().radius.half())
-                                                    .bg(cx.theme().primary)
+                                                    .border_1()
+                                                    .border_color(cx.theme().primary)
                                                     .text_color(cx.theme().primary_foreground)
                                                     .when(checked, |this| {
-                                                        this.child(
+                                                        this.bg(cx.theme().primary).child(
                                                             Icon::new(IconName::Check)
                                                                 .size_2()
                                                                 .text_xs(),
@@ -454,28 +487,17 @@ impl Node {
                                                     }),
                                             )
                                         })
-                                        .child(div().flex_1().overflow_hidden().child(
-                                            child.render(
-                                                Some(ListState {
-                                                    depth: state.depth + 1,
-                                                    ordered: state.ordered,
-                                                    todo: checked.is_some(),
-                                                }),
-                                                true,
-                                                text_view_style,
-                                                window,
-                                                cx,
-                                            ),
-                                        )),
+                                        .child(div().overflow_hidden().child(text)),
                                 );
                             }
                             Node::List { .. } => {
-                                items.push(div().ml(rems(1.)).child(child.render(
+                                items.push(div().ml(rems(1.)).child(child.clone().render(
                                     Some(ListState {
                                         depth: state.depth + 1,
                                         ordered: state.ordered,
                                         todo: checked.is_some(),
                                     }),
+                                    true,
                                     true,
                                     text_view_style,
                                     window,
@@ -580,6 +602,7 @@ impl Node {
     fn render_codeblock(
         code_block: CodeBlock,
         mb: Rems,
+        _: &TextViewStyle,
         _: &mut Window,
         cx: &mut App,
     ) -> AnyElement {
@@ -587,7 +610,7 @@ impl Node {
             .mb(mb)
             .p_3()
             .rounded(cx.theme().radius)
-            .bg(cx.theme().secondary)
+            .bg(cx.theme().accent)
             .font_family("Menlo, Monaco, Consolas, monospace")
             .text_size(rems(0.875))
             .relative()
@@ -598,8 +621,9 @@ impl Node {
     pub(crate) fn render(
         self,
         list_state: Option<ListState>,
+        is_root: bool,
         is_last_child: bool,
-        text_view_style: &TextViewStyle,
+        style: &TextViewStyle,
         window: &mut Window,
         cx: &mut App,
     ) -> impl IntoElement {
@@ -607,7 +631,7 @@ impl Node {
         let mb = if in_list || is_last_child {
             rems(0.)
         } else {
-            text_view_style.paragraph_gap
+            style.paragraph_gap
         };
 
         match self {
@@ -615,8 +639,8 @@ impl Node {
                 .children({
                     let children_len = children.len();
                     children.into_iter().enumerate().map(move |(index, c)| {
-                        let is_last_child = index == children_len - 1;
-                        c.render(None, is_last_child, text_view_style, window, cx)
+                        let is_last_child = is_root && index == children_len - 1;
+                        c.render(None, false, is_last_child, style, window, cx)
                     })
                 })
                 .into_any_element(),
@@ -632,7 +656,7 @@ impl Node {
                     _ => (rems(1.), FontWeight::NORMAL),
                 };
 
-                let text_size = text_size.to_pixels(text_view_style.heading_base_font_size);
+                let text_size = text_size.to_pixels(style.heading_base_font_size);
 
                 h_flex()
                     .mb(rems(0.3))
@@ -642,14 +666,20 @@ impl Node {
                     .child(children)
                     .into_any_element()
             }
-            Node::Blockquote(children) => div()
+            Node::Blockquote { children } => div()
                 .w_full()
                 .mb(mb)
                 .text_color(cx.theme().muted_foreground)
                 .border_l_3()
                 .border_color(cx.theme().secondary_active)
                 .px_4()
-                .child(children)
+                .children({
+                    let children_len = children.len();
+                    children.into_iter().enumerate().map(move |(index, c)| {
+                        let is_last_child = is_root && index == children_len - 1;
+                        c.render(None, false, is_last_child, style, window, cx)
+                    })
+                })
                 .into_any_element(),
             Node::List { children, ordered } => v_flex()
                 .mb(mb)
@@ -668,7 +698,7 @@ impl Node {
                                 todo: list_state.todo,
                                 depth: list_state.depth,
                             },
-                            text_view_style,
+                            style,
                             window,
                             cx,
                         ));
@@ -680,7 +710,9 @@ impl Node {
                     items
                 })
                 .into_any_element(),
-            Node::CodeBlock(code_block) => Self::render_codeblock(code_block, mb, window, cx),
+            Node::CodeBlock(code_block) => {
+                Self::render_codeblock(code_block, mb, style, window, cx)
+            }
             Node::Table { .. } => Self::render_table(&self, window, cx).into_any_element(),
             Node::Divider => div()
                 .bg(cx.theme().border)
@@ -688,10 +720,9 @@ impl Node {
                 .mb(mb)
                 .into_any_element(),
             Node::Break { .. } => div().into_any_element(),
-            Node::Ignore => div().into_any_element(),
             _ => {
                 if cfg!(debug_assertions) {
-                    eprintln!("Unknown implementation: {:?}", self);
+                    tracing::warn!("unknown implementation: {:?}", self);
                 }
 
                 div().into_any_element()
@@ -760,8 +791,13 @@ impl Node {
                 let hashes = "#".repeat(*level as usize);
                 format!("{} {}", hashes, children.to_markdown())
             }
-            Node::Blockquote(paragraph) => {
-                let content = paragraph.to_markdown();
+            Node::Blockquote { children } => {
+                let content = children
+                    .iter()
+                    .map(|child| child.to_markdown())
+                    .collect::<Vec<_>>()
+                    .join("\n\n");
+
                 content
                     .lines()
                     .map(|line| format!("> {}", line))
@@ -858,7 +894,6 @@ impl Node {
                 }
             }
             Node::Divider => "---".to_string(),
-            Node::Ignore => "".to_string(),
             Node::Unknown => "".to_string(),
         }
         .trim()

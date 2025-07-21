@@ -2,8 +2,8 @@ use gpui::{
     anchored, canvas, deferred, div, prelude::FluentBuilder as _, px, relative, App, AppContext,
     Bounds, Context, Corner, ElementId, Entity, EventEmitter, FocusHandle, Focusable, Hsla,
     InteractiveElement as _, IntoElement, KeyBinding, MouseButton, ParentElement, Pixels, Point,
-    Render, RenderOnce, SharedString, StatefulInteractiveElement as _, Styled, Subscription,
-    Window,
+    Render, RenderOnce, SharedString, StatefulInteractiveElement as _, StyleRefinement, Styled,
+    Subscription, Window,
 };
 
 use crate::{
@@ -14,6 +14,7 @@ use crate::{
     input::{InputEvent, InputState, TextInput},
     tooltip::Tooltip,
     v_flex, ActiveTheme as _, Colorize as _, Icon, Selectable as _, Sizable, Size, StyleSized,
+    StyledExt,
 };
 
 const CONTEXT: &'static str = "ColorPicker";
@@ -28,16 +29,16 @@ pub enum ColorPickerEvent {
 }
 
 fn color_palettes() -> Vec<Vec<Hsla>> {
-    use crate::colors::DEFAULT_COLOR;
+    use crate::theme::DEFAULT_COLORS;
     use itertools::Itertools as _;
 
     macro_rules! c {
         ($color:tt) => {
-            DEFAULT_COLOR
+            DEFAULT_COLORS
                 .$color
                 .keys()
                 .sorted()
-                .map(|k| DEFAULT_COLOR.$color.get(k).map(|c| c.hsla).unwrap())
+                .map(|k| DEFAULT_COLORS.$color.get(k).map(|c| c.hsla).unwrap())
                 .collect::<Vec<_>>()
         };
     }
@@ -169,8 +170,9 @@ impl Focusable for ColorPickerState {
 #[derive(IntoElement)]
 pub struct ColorPicker {
     id: ElementId,
+    style: StyleRefinement,
     state: Entity<ColorPickerState>,
-    featured_colors: Vec<Hsla>,
+    featured_colors: Option<Vec<Hsla>>,
     label: Option<SharedString>,
     icon: Option<Icon>,
     size: Size,
@@ -181,21 +183,9 @@ impl ColorPicker {
     pub fn new(state: &Entity<ColorPickerState>) -> Self {
         Self {
             id: ("color-picker", state.entity_id()).into(),
+            style: StyleRefinement::default(),
             state: state.clone(),
-            featured_colors: vec![
-                crate::black(),
-                crate::gray_600(),
-                crate::gray_400(),
-                crate::white(),
-                crate::red_600(),
-                crate::orange_600(),
-                crate::yellow_600(),
-                crate::green_600(),
-                crate::blue_600(),
-                crate::indigo_600(),
-                crate::purple_600(),
-            ],
-
+            featured_colors: None,
             size: Size::Medium,
             label: None,
             icon: None,
@@ -208,7 +198,7 @@ impl ColorPicker {
     /// This is used to display a set of colors that the user can quickly select from,
     /// for example provided user's last used colors.
     pub fn featured_colors(mut self, colors: Vec<Hsla>) -> Self {
-        self.featured_colors = colors;
+        self.featured_colors = Some(colors);
         self
     }
 
@@ -262,7 +252,7 @@ impl ColorPicker {
                 this.hover(|this| {
                     this.border_color(color.darken(0.3))
                         .bg(color.lighten(0.1))
-                        .shadow_sm()
+                        .shadow_xs()
                 })
                 .active(|this| this.border_color(color.darken(0.5)).bg(color.darken(0.2)))
                 .on_mouse_move(window.listener_for(&state, move |state, _, _, cx| {
@@ -281,12 +271,27 @@ impl ColorPicker {
     }
 
     fn render_colors(&self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let featured_colors = self.featured_colors.clone().unwrap_or(vec![
+            cx.theme().red,
+            cx.theme().red_light,
+            cx.theme().blue,
+            cx.theme().blue_light,
+            cx.theme().green,
+            cx.theme().green_light,
+            cx.theme().yellow,
+            cx.theme().yellow_light,
+            cx.theme().cyan,
+            cx.theme().cyan_light,
+            cx.theme().magenta,
+            cx.theme().magenta_light,
+        ]);
+
         let state = self.state.clone();
         v_flex()
             .gap_3()
             .child(
                 h_flex().gap_1().children(
-                    self.featured_colors
+                    featured_colors
                         .iter()
                         .map(|color| self.render_item(*color, true, window, cx)),
                 ),
@@ -346,6 +351,12 @@ impl Focusable for ColorPicker {
     }
 }
 
+impl Styled for ColorPicker {
+    fn style(&mut self) -> &mut StyleRefinement {
+        &mut self.style
+    }
+}
+
 impl RenderOnce for ColorPicker {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let state = self.state.read(cx);
@@ -369,6 +380,7 @@ impl RenderOnce for ColorPicker {
                     .items_center()
                     .input_text_size(self.size)
                     .line_height(relative(1.))
+                    .refine_style(&self.style)
                     .when_some(self.icon.clone(), |this, icon| {
                         this.child(
                             Button::new("btn")
@@ -386,7 +398,7 @@ impl RenderOnce for ColorPicker {
                                 .border_1()
                                 .border_color(cx.theme().input)
                                 .rounded(cx.theme().radius)
-                                .shadow_sm()
+                                .shadow_xs()
                                 .overflow_hidden()
                                 .size_with(self.size)
                                 .when_some(state.value, |this, value| {

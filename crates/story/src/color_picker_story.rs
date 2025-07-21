@@ -3,9 +3,8 @@ use gpui::{
     ParentElement as _, Render, Styled as _, Subscription, Window,
 };
 use gpui_component::{
-    blue_500,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    green_500, red_500, v_flex, yellow_500, Colorize,
+    v_flex, ActiveTheme as _, Colorize, Sizable,
 };
 
 use crate::section;
@@ -13,7 +12,6 @@ use crate::section;
 pub struct ColorPickerStory {
     color: Entity<ColorPickerState>,
     selected_color: Option<Hsla>,
-
     _subscriptions: Vec<Subscription>,
 }
 
@@ -37,7 +35,8 @@ impl ColorPickerStory {
     }
 
     fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let color = cx.new(|cx| ColorPickerState::new(window, cx).default_value(red_500()));
+        let color =
+            cx.new(|cx| ColorPickerState::new(window, cx).default_value(cx.theme().primary));
 
         let _subscriptions = vec![cx.subscribe(&color, |this, _, ev, _| match ev {
             ColorPickerEvent::Change(color) => {
@@ -48,7 +47,7 @@ impl ColorPickerStory {
 
         Self {
             color,
-            selected_color: Some(red_500()),
+            selected_color: Some(cx.theme().primary),
             _subscriptions,
         }
     }
@@ -65,12 +64,7 @@ impl Render for ColorPickerStory {
         v_flex().gap_3().child(
             section("Normal")
                 .max_w_md()
-                .child(ColorPicker::new(&self.color).featured_colors(vec![
-                    red_500(),
-                    blue_500(),
-                    green_500(),
-                    yellow_500(),
-                ]))
+                .child(ColorPicker::new(&self.color).small())
                 .when_some(self.selected_color, |this, color| {
                     this.child(color.to_hex())
                 }),

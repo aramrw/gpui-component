@@ -202,11 +202,11 @@ impl SyntaxHighlighter {
     pub fn update(
         &mut self,
         selected_range: &Range<usize>,
-        full_text: SharedString,
+        full_text: &SharedString,
         new_text: &str,
         cx: &mut App,
     ) {
-        if self.text == full_text {
+        if &self.text == full_text {
             return;
         }
 
@@ -244,7 +244,7 @@ impl SyntaxHighlighter {
 
         // Update state
         self.old_tree = Some(new_tree);
-        self.text = full_text;
+        self.text = full_text.clone();
 
         // let measure = Measure::new("build_styles");
         self.build_styles(changed_ranges, changed_len, cx);
@@ -272,15 +272,19 @@ impl SyntaxHighlighter {
 
         // Incremental parsing to only update changed ranges.
         if let Some(changed_ranges) = changed_ranges {
-            let mut total_range = 0..0;
+            let mut total_range = (None, None);
             for change_range in changed_ranges {
-                if total_range.start == 0 {
-                    total_range.start = change_range.start_byte;
+                // dbg!(change_range);
+                if total_range.0.is_none() {
+                    total_range.0 = Some(change_range.start_byte);
                 }
-                if total_range.end == 0 {
-                    total_range.end = change_range.end_byte;
+                if total_range.1.is_none() {
+                    total_range.1 = Some(change_range.end_byte);
                 }
             }
+            let total_range = total_range.0.unwrap_or(0)..total_range.1.unwrap_or(0);
+
+            // println!("------- total_range: {:?}", total_range);
 
             if total_range.len() == 0 {
                 return;

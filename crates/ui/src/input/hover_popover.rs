@@ -6,7 +6,6 @@ use gpui::{
 };
 
 use crate::{
-    highlighter::LanguageRegistry,
     input::{InputState, Marker},
     text::TextView,
     ActiveTheme as _,
@@ -35,13 +34,14 @@ impl DiagnosticPopover {
         let Some(range) = self.marker.range.as_ref() else {
             return None;
         };
+        let line_number_width = self.state.read(cx).line_number_width;
 
         let (_, _, start_pos) = self
             .state
             .read(cx)
             .line_and_position_for_offset(range.start);
 
-        start_pos
+        start_pos.map(|pos| pos + Point::new(line_number_width, px(0.)))
     }
 
     pub(super) fn show(&mut self, cx: &mut Context<Self>) {
@@ -78,16 +78,16 @@ impl Render for DiagnosticPopover {
         }
 
         let view = cx.entity();
-        let theme = LanguageRegistry::global(cx).theme(cx.theme().is_dark());
+        let theme = &cx.theme().highlight_theme;
 
         let message = self.marker.message.clone();
         let Some(pos) = self.origin(cx) else {
             return Empty.into_any_element();
         };
         let (border, bg, fg) = (
-            self.marker.severity.border(theme),
-            self.marker.severity.bg(theme),
-            self.marker.severity.fg(theme),
+            self.marker.severity.border(theme, cx),
+            self.marker.severity.bg(theme, cx),
+            self.marker.severity.fg(theme, cx),
         );
 
         let scroll_origin = self.state.read(cx).scroll_handle.offset();
@@ -98,7 +98,7 @@ impl Render for DiagnosticPopover {
 
         deferred(
             div()
-                .id("code-editor-diagnostic-popover")
+                .id("diagnostic-popover")
                 .absolute()
                 .left(x)
                 .top(y)
@@ -111,7 +111,7 @@ impl Render for DiagnosticPopover {
                 .border_1()
                 .border_color(border)
                 .rounded(cx.theme().radius)
-                .shadow_sm()
+                .shadow_xs()
                 .child(TextView::markdown("message", message))
                 .child(
                     canvas(

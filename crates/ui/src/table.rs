@@ -1,4 +1,4 @@
-use std::{cell::Cell, ops::Range, rc::Rc, time::Duration};
+use std::{ops::Range, rc::Rc, time::Duration};
 
 use crate::{
     actions::{Cancel, SelectNext, SelectPrev},
@@ -43,7 +43,7 @@ pub(crate) struct ColGroup {
     pub(crate) bounds: Bounds<Pixels>,
     pub(crate) sort: Option<ColSort>,
     pub(crate) fixed: Option<ColFixed>,
-    pub(crate) padding: Option<Edges<Pixels>>,
+    pub(crate) paddings: Option<Edges<Pixels>>,
 }
 
 #[derive(Clone)]
@@ -140,16 +140,19 @@ pub struct Table<D: TableDelegate> {
     bounds: Bounds<Pixels>,
     /// The bounds of the fixed head cols.
     fixed_head_cols_bounds: Bounds<Pixels>,
-    /// The bounds of the table head content.
-    head_content_bounds: Bounds<Pixels>,
 
     col_groups: Vec<ColGroup>,
     fixed_cols: FixedCols,
 
+    /// Whether the table can loop selection, default is true.
+    ///
+    /// When the prev/next selection is out of the table bounds, the selection will loop to the other side.
+    pub loop_selection: bool,
+
     pub vertical_scroll_handle: UniformListScrollHandle,
-    pub vertical_scrollbar_state: Rc<Cell<ScrollbarState>>,
+    pub vertical_scroll_state: ScrollbarState,
     pub horizontal_scroll_handle: ScrollHandle,
-    pub horizontal_scrollbar_state: Rc<Cell<ScrollbarState>>,
+    pub horizontal_scroll_state: ScrollbarState,
 
     scrollbar_visible: Edges<bool>,
     selected_row: Option<usize>,
@@ -184,12 +187,12 @@ pub trait TableDelegate: Sized + 'static {
     fn col_name(&self, col_ix: usize, cx: &App) -> SharedString;
 
     /// Returns whether the column at the given index can be resized. Default: true
-    fn can_resize_col(&self, col_ix: usize, cx: &App) -> bool {
+    fn col_resizable(&self, col_ix: usize, cx: &App) -> bool {
         true
     }
 
     /// Returns whether the column at the given index can be selected. Default: false
-    fn can_select_col(&self, col_ix: usize, cx: &App) -> bool {
+    fn col_selectable(&self, col_ix: usize, cx: &App) -> bool {
         false
     }
 
@@ -218,8 +221,13 @@ pub trait TableDelegate: Sized + 'static {
     /// Return the padding of the column at the given index to override the default padding.
     ///
     /// Return None, use the default padding.
-    fn col_padding(&self, col_ix: usize, cx: &App) -> Option<Edges<Pixels>> {
+    fn col_paddings(&self, col_ix: usize, cx: &App) -> Option<Edges<Pixels>> {
         None
+    }
+
+    /// Return true to enable column order change.
+    fn col_movable(&self, col_ix: usize, cx: &App) -> bool {
+        false
     }
 
     /// Perform sort on the column at the given index.
@@ -265,20 +273,6 @@ pub trait TableDelegate: Sized + 'static {
         window: &mut Window,
         cx: &mut Context<Table<Self>>,
     ) -> impl IntoElement;
-
-    /// Return true to enable loop selection on the table.
-    ///
-    /// When the prev/next selection is out of the table bounds, the selection will loop to the other side.
-    ///
-    /// Default: true
-    fn can_loop_select(&self, _: &App) -> bool {
-        true
-    }
-
-    /// Return true to enable column order change.
-    fn can_move_col(&self, col_ix: usize, cx: &App) -> bool {
-        false
-    }
 
     /// Move the column at the given `col_ix` to insert before the column at the given `to_ix`.
     fn move_col(
@@ -391,8 +385,8 @@ where
             fixed_cols: FixedCols::default(),
             horizontal_scroll_handle: ScrollHandle::new(),
             vertical_scroll_handle: UniformListScrollHandle::new(),
-            vertical_scrollbar_state: Rc::new(Cell::new(ScrollbarState::new())),
-            horizontal_scrollbar_state: Rc::new(Cell::new(ScrollbarState::new())),
+            vertical_scroll_state: ScrollbarState::default(),
+            horizontal_scroll_state: ScrollbarState::default(),
             selection_state: SelectionState::Row,
             selected_row: None,
             right_clicked_row: None,
@@ -400,12 +394,12 @@ where
             resizing_col: None,
             bounds: Bounds::default(),
             fixed_head_cols_bounds: Bounds::default(),
-            head_content_bounds: Bounds::default(),
             stripe: false,
             border: true,
             size: Size::default(),
             scrollbar_visible: Edges::all(true),
             visible_range: VisibleRangeState::default(),
+            loop_selection: true,
             _load_more_task: Task::ready(()),
             _measure: Vec::new(),
         };
@@ -439,6 +433,12 @@ where
         self
     }
 
+    /// Set to loop selection, default to true.
+    pub fn loop_selection(mut self, loop_selection: bool) -> Self {
+        self.loop_selection = loop_selection;
+        self
+    }
+
     /// Set the size to the table.
     pub fn set_size(&mut self, size: Size, cx: &mut Context<Self>) {
         self.size = size;
@@ -469,7 +469,7 @@ where
         self.col_groups = (0..self.delegate.cols_count(cx))
             .map(|col_ix| ColGroup {
                 width: self.delegate.col_width(col_ix, cx),
-                padding: self.delegate.col_padding(col_ix, cx),
+                paddings: self.delegate.col_paddings(col_ix, cx),
                 bounds: Bounds::default(),
                 sort: self.delegate.col_sort(col_ix, cx),
                 fixed: self.delegate.col_fixed(col_ix, cx),
@@ -566,7 +566,7 @@ where
     }
 
     fn on_col_head_click(&mut self, col_ix: usize, _: &mut Window, cx: &mut Context<Self>) {
-        if !self.delegate.can_select_col(col_ix, cx) {
+        if !self.delegate.col_selectable(col_ix, cx) {
             return;
         }
 
@@ -587,7 +587,7 @@ where
         if selected_row > 0 {
             selected_row = selected_row.saturating_sub(1);
         } else {
-            if self.delegate.can_loop_select(cx) {
+            if self.loop_selection {
                 selected_row = rows_count.saturating_sub(1);
             }
         }
@@ -604,7 +604,7 @@ where
         let selected_row = match self.selected_row {
             Some(selected_row) if selected_row < rows_count.saturating_sub(1) => selected_row + 1,
             Some(selected_row) => {
-                if self.delegate.can_loop_select(cx) {
+                if self.loop_selection {
                     0
                 } else {
                     selected_row
@@ -627,7 +627,7 @@ where
         if selected_col > 0 {
             selected_col = selected_col.saturating_sub(1);
         } else {
-            if self.delegate.can_loop_select(cx) {
+            if self.loop_selection {
                 selected_col = cols_count.saturating_sub(1);
             }
         }
@@ -644,7 +644,7 @@ where
         if selected_col < self.delegate.cols_count(cx).saturating_sub(1) {
             selected_col += 1;
         } else {
-            if self.delegate.can_loop_select(cx) {
+            if self.loop_selection {
                 selected_col = 0;
             }
         }
@@ -681,7 +681,7 @@ where
         const MIN_WIDTH: Pixels = px(10.0);
         const MAX_WIDTH: Pixels = px(1200.0);
 
-        if !self.delegate.can_resize_col(ix, cx) {
+        if !self.delegate.col_resizable(ix, cx) {
             return;
         }
         let size = size.floor();
@@ -806,22 +806,6 @@ where
         }
     }
 
-    /// Returns the size of the content area.
-    fn head_content_bounds(&self) -> gpui::Bounds<Pixels> {
-        let has_fixed_cols = self.fixed_head_cols_bounds.size.width > px(0.0);
-        Bounds {
-            origin: if has_fixed_cols {
-                self.fixed_head_cols_bounds.origin
-            } else {
-                self.head_content_bounds.origin
-            },
-            size: gpui::size(
-                self.fixed_head_cols_bounds.size.width + self.head_content_bounds.size.width,
-                self.head_content_bounds.size.height,
-            ),
-        }
-    }
-
     #[inline]
     fn render_cell(&self, col_ix: usize, _window: &mut Window, _cx: &mut Context<Self>) -> Div {
         let Some(col_group) = self.col_groups.get(col_ix) else {
@@ -829,7 +813,7 @@ where
         };
 
         let col_width = col_group.width;
-        let col_padding = col_group.padding;
+        let col_padding = col_group.paddings;
 
         div()
             .w(col_width)
@@ -852,7 +836,7 @@ where
     fn render_col_wrap(&self, col_ix: usize, _: &mut Window, cx: &mut Context<Self>) -> Div {
         let el = h_flex().h_full();
 
-        if self.delegate().can_select_col(col_ix, cx)
+        if self.delegate().col_selectable(col_ix, cx)
             && self.selected_col == Some(col_ix)
             && self.selection_state == SelectionState::Column
         {
@@ -867,7 +851,7 @@ where
         _: &mut Window,
         cx: &mut Context<Self>,
     ) -> Option<impl IntoElement> {
-        let state = self.vertical_scrollbar_state.clone();
+        let state = self.vertical_scroll_state.clone();
 
         Some(
             div()
@@ -880,14 +864,7 @@ where
                 .on_scroll_wheel(cx.listener(|_, _: &ScrollWheelEvent, _, cx| {
                     cx.notify();
                 }))
-                .child(
-                    Scrollbar::uniform_scroll(
-                        cx.entity().entity_id(),
-                        state,
-                        self.vertical_scroll_handle.clone(),
-                    )
-                    .max_fps(60),
-                ),
+                .child(Scrollbar::uniform_scroll(&state, &self.vertical_scroll_handle).max_fps(60)),
         )
     }
 
@@ -896,12 +873,12 @@ where
         _: &mut Window,
         cx: &mut Context<Self>,
     ) -> impl IntoElement {
-        let state = self.horizontal_scrollbar_state.clone();
+        let state = self.horizontal_scroll_state.clone();
 
         div()
             .occlude()
             .absolute()
-            .left_0()
+            .left(self.fixed_head_cols_bounds.size.width)
             .right_0()
             .bottom_0()
             .h(scroll::WIDTH)
@@ -909,10 +886,8 @@ where
                 cx.notify();
             }))
             .child(Scrollbar::horizontal(
-                cx.entity().entity_id(),
-                state,
-                self.horizontal_scroll_handle.clone(),
-                self.head_content_bounds().size,
+                &state,
+                &self.horizontal_scroll_handle,
             ))
     }
 
@@ -924,7 +899,7 @@ where
     ) -> impl IntoElement {
         const HANDLE_SIZE: Pixels = px(2.);
 
-        if !self.delegate.can_resize_col(ix, cx) {
+        if !self.delegate.col_resizable(ix, cx) {
             return div().into_any_element();
         }
 
@@ -1052,8 +1027,8 @@ where
     ) -> impl IntoElement {
         let entity_id = cx.entity_id();
         let col_group = self.col_groups.get(col_ix).expect("BUG: invalid col index");
-        let moveable = self.delegate.can_move_col(col_ix, cx);
-        let paddings = self.delegate.col_padding(col_ix, cx);
+        let movable = self.delegate.col_movable(col_ix, cx);
+        let paddings = self.delegate.col_paddings(col_ix, cx);
         let name = self.delegate.col_name(col_ix, cx);
 
         h_flex()
@@ -1080,7 +1055,7 @@ where
                             })
                             .children(self.render_sort_icon(col_ix, &col_group, window, cx)),
                     )
-                    .when(moveable, |this| {
+                    .when(movable, |this| {
                         this.on_drag(
                             DragCol {
                                 entity_id,
@@ -1135,6 +1110,11 @@ where
     ) -> impl IntoElement {
         let view = cx.entity().clone();
         let horizontal_scroll_handle = self.horizontal_scroll_handle.clone();
+
+        // Reset fixed head columns bounds, if no fixed columns are present
+        if left_cols_count == 0 {
+            self.fixed_head_cols_bounds = Bounds::default();
+        }
 
         h_flex()
             .w_full()
@@ -1203,17 +1183,7 @@ where
                                         self.render_th(left_cols_count + col_ix, window, cx)
                                     }),
                             )
-                            .child(self.delegate.render_last_empty_col(window, cx))
-                            .child(
-                                canvas(
-                                    move |bounds, _, cx| {
-                                        view.update(cx, |r, _| r.head_content_bounds = bounds)
-                                    },
-                                    |_, _, _, _| {},
-                                )
-                                .absolute()
-                                .size_full(),
-                            ),
+                            .child(self.delegate.render_last_empty_col(window, cx)),
                     ),
             )
     }
