@@ -163,82 +163,82 @@ impl RenderOnce for SidebarMenuItem {
         let is_open = self.is_open();
         let is_submenu = self.is_submenu();
 
-        div()
-            .id(self.id.clone())
-            .w_full()
-            .child(
-                self.base
-                    .size_full()
-                    .id("item")
-                    .overflow_x_hidden()
-                    .flex_shrink_0()
-                    .p_2()
-                    .gap_x_2()
-                    .rounded(cx.theme().radius)
-                    .text_sm()
-                    .hover(|this| {
-                        if is_active {
-                            return this;
-                        }
+        div().id(self.id.clone()).w_full().child(
+            self.base
+                .size_full()
+                .id("item")
+                .overflow_x_hidden()
+                .flex_shrink_0()
+                .p_2()
+                .justify_center()
+                .items_center()
+                .gap_x_2()
+                .rounded(cx.theme().radius)
+                .text_sm()
+                .hover(|this| {
+                    if is_active {
+                        return this;
+                    }
 
-                        this.bg(cx.theme().sidebar_accent.opacity(0.8))
+                    this.bg(cx.theme().sidebar_accent.opacity(0.8))
+                        .text_color(cx.theme().sidebar_accent_foreground)
+                })
+                .when(is_active && !is_submenu, |this| {
+                    this.font_medium()
+                        .bg(cx.theme().sidebar_accent)
+                        .text_color(cx.theme().sidebar_accent_foreground)
+                })
+                .when_some(self.icon.clone(), |this, icon| this.child(icon))
+                .when(is_collapsed, |this| {
+                    this.justify_center().when(is_active, |this| {
+                        this.bg(cx.theme().sidebar_accent)
                             .text_color(cx.theme().sidebar_accent_foreground)
                     })
-                    .when(is_active && !is_submenu, |this| {
-                        this.font_medium()
-                            .bg(cx.theme().sidebar_accent)
-                            .text_color(cx.theme().sidebar_accent_foreground)
-                    })
-                    .when_some(self.icon.clone(), |this, icon| this.child(icon))
-                    .when(is_collapsed, |this| {
-                        this.justify_center().when(is_active, |this| {
-                            this.bg(cx.theme().sidebar_accent)
-                                .text_color(cx.theme().sidebar_accent_foreground)
-                        })
-                    })
-                    .when(!is_collapsed, |this| {
-                        this.h_7()
-                            .child(
-                                h_flex()
-                                    .flex_1()
-                                    .gap_x_2()
-                                    .justify_between()
-                                    .overflow_x_hidden()
-                                    .child(
-                                        h_flex()
-                                            .flex_1()
-                                            .overflow_x_hidden()
-                                            .child(self.label.clone()),
-                                    )
-                                    .when_some(self.suffix, |this, suffix| this.child(suffix)),
-                            )
-                            .when(is_submenu, |this| {
-                                this.child(
-                                    Icon::new(IconName::ChevronRight)
-                                        .size_4()
-                                        .when(is_open, |this| this.rotate(percentage(90. / 360.))),
-                                )
-                            })
-                    })
-                    .on_click(move |ev, window, cx| handler(ev, window, cx)),
-            )
-            .when(is_submenu && is_open && !is_collapsed, |this| {
-                this.child(
-                    h_flex()
-                        .id("submenu")
-                        .border_l_1()
-                        .border_color(cx.theme().sidebar_border)
-                        .gap_1()
-                        .ml_3p5()
-                        .pl_2p5()
-                        .py_0p5()
-                        .children(
-                            self.children
-                                .into_iter()
-                                .enumerate()
-                                .map(|(ix, item)| item.id(ix)),
-                        ),
-                )
-            })
+                })
+                .on_click(move |ev, window, cx| handler(ev, window, cx)),
+        )
+        //         .when(!is_collapsed, |this| {
+        //             this.h_7()
+        //                 .child(
+        //                     h_flex()
+        //                         .flex_1()
+        //                         .gap_x_2()
+        //                         .justify_between()
+        //                         .overflow_x_hidden()
+        //                         // .child(
+        //                         //     h_flex()
+        //                         //         .flex_1()
+        //                         //         .overflow_x_hidden()
+        //                         //         .child(self.label.clone()),
+        //                         // )
+        //                         .when_some(self.suffix, |this, suffix| this.child(suffix)),
+        //                 )
+        //                 .when(is_submenu, |this| {
+        //                     this.child(
+        //                         Icon::new(IconName::ChevronRight)
+        //                             .size_4()
+        //                             .when(is_open, |this| this.rotate(percentage(90. / 360.))),
+        //                     )
+        //                 })
+        //         })
+        // )
+        // .when(is_submenu && is_open && !is_collapsed, |this| {
+        //     this.child(
+        //         h_flex()
+        //             .id("submenu")
+        //             .border_l_1()
+        //             .border_color(cx.theme().sidebar_border)
+        //             .gap_1()
+        //             .ml_3p5()
+        //             .pl_2p5()
+        //             .py_0p5()
+        //             .children(
+        //                 self.children
+        //                     .into_iter()
+        //                     .enumerate()
+        //                     .map(|(ix, item)| item.id(ix)),
+        //             ),
+        //     )
+        // })
     }
 }
