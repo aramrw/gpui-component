@@ -1,4 +1,4 @@
-use crate::{h_flex, v_flex, ActiveTheme as _, Collapsible, Icon, IconName, StyledExt};
+use crate::{h_flex, ActiveTheme as _, Collapsible, Icon, IconName, StyledExt};
 use gpui::{
     div, percentage, prelude::FluentBuilder as _, AnyElement, App, ClickEvent, Div, ElementId,
     InteractiveElement as _, IntoElement, ParentElement as _, RenderOnce, SharedString,
@@ -22,7 +22,7 @@ impl Styled for SidebarMenu {
 impl SidebarMenu {
     pub fn new() -> Self {
         Self {
-            base: v_flex(),
+            base: h_flex(),
             items: Vec::new(),
             collapsed: false,
         }
@@ -224,7 +224,7 @@ impl RenderOnce for SidebarMenuItem {
             )
             .when(is_submenu && is_open && !is_collapsed, |this| {
                 this.child(
-                    v_flex()
+                    h_flex()
                         .id("submenu")
                         .border_l_1()
                         .border_color(cx.theme().sidebar_border)
