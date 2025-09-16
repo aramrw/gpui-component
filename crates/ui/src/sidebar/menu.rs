@@ -76,6 +76,12 @@ pub struct SidebarMenuItem {
     suffix: Option<AnyElement>,
 }
 
+impl Styled for SidebarMenuItem {
+    fn style(&mut self) -> &mut gpui::StyleRefinement {
+        self.base.style()
+    }
+}
+
 impl SidebarMenuItem {
     /// Create a new SidebarMenuItem with a label
     pub fn new(label: impl Into<SharedString>) -> Self {

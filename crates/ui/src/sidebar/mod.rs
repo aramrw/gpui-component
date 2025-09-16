@@ -30,6 +30,8 @@ pub struct Sidebar<E: Collapsible + IntoElement + 'static> {
     header: Option<AnyElement>,
     /// footer view
     footer: Option<AnyElement>,
+    /// bottom view
+    bottom: Option<AnyElement>,
     /// The side of the sidebar
     side: Side,
     collapsible: bool,
@@ -44,6 +46,7 @@ impl<E: Collapsible + IntoElement> Sidebar<E> {
             content: vec![],
             header: None,
             footer: None,
+            bottom: None, // Initialize the new field
             side,
             collapsible: true,
             width: DEFAULT_WIDTH.into(),
@@ -54,6 +57,10 @@ impl<E: Collapsible + IntoElement> Sidebar<E> {
 
     pub fn left() -> Self {
         Self::new(Side::Left)
+    }
+
+    pub fn bottom() -> Self {
+        Self::new(Side::Bottom)
     }
 
     pub fn right() -> Self {
@@ -93,6 +100,12 @@ impl<E: Collapsible + IntoElement> Sidebar<E> {
     /// Set the footer of the sidebar.
     pub fn footer(mut self, footer: impl IntoElement) -> Self {
         self.footer = Some(footer.into_any_element());
+        self
+    }
+
+    /// Set the bottom section of the sidebar.
+    pub fn bottom_section(mut self, bottom: impl IntoElement) -> Self {
+        self.bottom = Some(bottom.into_any_element());
         self
     }
 
@@ -186,39 +199,80 @@ impl RenderOnce for SidebarToggleButton {
 
 impl<E: Collapsible + IntoElement> RenderOnce for Sidebar<E> {
     fn render(mut self, _: &mut Window, cx: &mut App) -> impl IntoElement {
-        v_flex()
-            .id("sidebar")
-            .w(self.width)
-            .when(self.collapsed, |this| this.w(COLLAPSED_WIDTH))
-            .flex_shrink_0()
-            .h_full()
-            .overflow_hidden()
-            .relative()
-            .bg(cx.theme().sidebar)
-            .text_color(cx.theme().sidebar_foreground)
-            .border_color(cx.theme().sidebar_border)
-            .map(|this| match self.side {
-                Side::Left => this.border_r(self.border_width),
-                Side::Right => this.border_l(self.border_width),
-            })
-            .when_some(self.header.take(), |this, header| {
-                this.child(h_flex().id("header").p_2().gap_2().child(header))
-            })
-            .child(
-                v_flex().id("content").flex_1().min_h_0().child(
-                    div()
-                        .children(
-                            self.content
-                                .into_iter()
-                                .enumerate()
-                                .map(|(ix, c)| div().id(ix).child(c.collapsed(self.collapsed))),
-                        )
-                        .gap_2()
-                        .scrollable(ScrollbarAxis::Vertical),
-                ),
-            )
-            .when_some(self.footer.take(), |this, footer| {
-                this.child(h_flex().id("footer").gap_2().p_2().child(footer))
-            })
+        match self.side {
+            Side::Left | Side::Right => v_flex()
+                .id("sidebar")
+                .w(self.width)
+                .when(self.collapsed, |this| this.w(COLLAPSED_WIDTH))
+                .flex_shrink_0()
+                .h_full()
+                .overflow_hidden()
+                .relative()
+                .bg(cx.theme().sidebar)
+                .text_color(cx.theme().sidebar_foreground)
+                .border_color(cx.theme().sidebar_border)
+                .map(|this| match self.side {
+                    Side::Left => this.border_r(self.border_width),
+                    Side::Right => this.border_l(self.border_width),
+                    _ => unreachable!(),
+                })
+                .when_some(self.header.take(), |this, header| {
+                    this.child(h_flex().id("header").p_2().gap_2().child(header))
+                })
+                .child(
+                    v_flex().id("content").flex_1().min_h_0().child(
+                        div()
+                            .children(
+                                self.content
+                                    .into_iter()
+                                    .enumerate()
+                                    .map(|(ix, c)| div().id(ix).child(c.collapsed(self.collapsed))),
+                            )
+                            .gap_2()
+                            .scrollable(ScrollbarAxis::Vertical),
+                    ),
+                )
+                .when_some(self.bottom.take(), |this, bottom| {
+                    this.child(h_flex().id("bottom").gap_2().p_2().child(bottom))
+                })
+                .when_some(self.footer.take(), |this, footer| {
+                    this.child(h_flex().id("footer").gap_2().p_2().child(footer))
+                }),
+
+            Side::Bottom => h_flex()
+                .id("sidebar")
+                .h(self.width)
+                .when(self.collapsed, |this| this.h(COLLAPSED_WIDTH))
+                .flex_shrink_0()
+                .w_full()
+                .overflow_hidden()
+                .relative()
+                .bg(cx.theme().sidebar)
+                .text_color(cx.theme().sidebar_foreground)
+                .border_color(cx.theme().sidebar_border)
+                .border_t(self.border_width)
+                .when_some(self.header.take(), |this, header| {
+                    this.child(h_flex().id("header").p_2().gap_2().child(header))
+                })
+                .child(
+                    v_flex().id("content").flex_1().min_w_0().child(
+                        div()
+                            .children(
+                                self.content
+                                    .into_iter()
+                                    .enumerate()
+                                    .map(|(ix, c)| div().id(ix).child(c.collapsed(self.collapsed))),
+                            )
+                            .gap_2()
+                            .scrollable(ScrollbarAxis::Horizontal),
+                    ),
+                )
+                .when_some(self.bottom.take(), |this, bottom| {
+                    this.child(h_flex().id("bottom").gap_2().p_2().child(bottom))
+                })
+                .when_some(self.footer.take(), |this, footer| {
+                    this.child(h_flex().id("footer").gap_2().p_2().child(footer))
+                }),
+        }
     }
 }

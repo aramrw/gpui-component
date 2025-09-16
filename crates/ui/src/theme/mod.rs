@@ -21,12 +21,18 @@ pub fn init(cx: &mut App) {
 
 pub trait ActiveTheme {
     fn theme(&self) -> &Theme;
+    /// for setup
+    fn theme_mut(&mut self) -> &mut Theme;
 }
 
 impl ActiveTheme for App {
     #[inline(always)]
     fn theme(&self) -> &Theme {
         Theme::global(self)
+    }
+    #[inline(always)]
+    fn theme_mut(&mut self) -> &mut Theme {
+        Theme::global_mut(self)
     }
 }
 
