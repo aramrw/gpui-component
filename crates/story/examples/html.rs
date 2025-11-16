@@ -8,8 +8,8 @@ use gpui_component::{
 use story::Assets;
 
 pub struct Example {
-    input_state: Entity<InputState>,
     resizable_state: Entity<ResizableState>,
+    input_state: Entity<InputState>,
     _subscribe: Subscription,
 }
 
